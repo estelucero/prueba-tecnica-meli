@@ -1,0 +1,1962 @@
+{
+  "name": "meli-workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chargeback/investigate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -1232,
+        2560
+      ],
+      "id": "34e499c8-9a50-4df8-b3a6-ee422a6d7d54",
+      "name": "Webhook - Investigar contracargo1",
+      "webhookId": "2f7a5067-56c8-44f6-8687-7a9ccf7fdb4a"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        592,
+        2944
+      ],
+      "id": "1ffcbd4e-8dbf-438d-98f3-3d430c3f814f",
+      "name": "Responder - 405"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $input.first()?.json ?? {};\nconst body = incoming.body && typeof incoming.body === 'object' ? incoming.body : incoming;\nconst transaction_id = String(body.transaction_id ?? '').trim().toUpperCase();\n\nconst errors = [];\nif (!/^TXN-\\d{5}$/.test(transaction_id)) errors.push('transaction_id debe tener formato TXN-00000.');\n\nreturn [{json:{valid:errors.length===0, transaction_id: $input.first().json.body.transaction_id}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        2560
+      ],
+      "id": "3190d569-fd30-4cf2-8e4a-0fdcb3d46094",
+      "name": "Validar y normalizar solicitud"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4155c36e-fea8-4773-922f-45d979ff0db1",
+              "leftValue": "={{ $('Validar y normalizar solicitud').item.json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -304,
+        2560
+      ],
+      "id": "be2eca31-da08-48fb-bcd4-fa4647479807",
+      "name": "¿Solicitud válida?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT row_to_json(t) AS transactions\nFROM (\n    SELECT *\n    FROM public.transactions \n    WHERE transaction_id = $1 \n    LIMIT 1\n) t;",
+        "options": {
+          "queryReplacement": "={{ [$node[\"Validar y normalizar solicitud\"].json.transaction_id] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        -64,
+        2544
+      ],
+      "id": "65ce6fbb-8336-4dc5-9842-e256de751b09",
+      "name": "Buscar transacción exacta1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "90455433-03e8-4b25-bcd8-ed147d5b6c45",
+              "leftValue": "={{ $json }}",
+              "rightValue": true,
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        144,
+        2544
+      ],
+      "id": "95043275-03e3-4352-95fa-de166bcbb360",
+      "name": "¿Transacción encontrada?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM event_logs el\nWHERE el.transaction_id = $1",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transaction.transaction_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        608,
+        2528
+      ],
+      "id": "941efd8f-4c85-4316-9182-99dc85752a45",
+      "name": "Obtengo Logs de Transaccion",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM transactions t \nWHERE t.client = $1 ",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.client }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1056,
+        2528
+      ],
+      "id": "31a63e4a-8e90-4d6a-97e4-5a400cbb47d3",
+      "name": "Obtengo Transacciones del cliente",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM historical_cases hc \nWHERE hc.transaction_id = $1",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.transaction_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1440,
+        2528
+      ],
+      "id": "8b961b58-9be2-4aaa-b09c-021b94e8d878",
+      "name": "Obtengo Casos Historicos",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "logs",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        832,
+        2528
+      ],
+      "id": "e98ad6e5-15e6-45a6-87bd-0694cfa0ac7c",
+      "name": "Creo Logs"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "transactions",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        2528
+      ],
+      "id": "97949a93-4d92-4181-9aac-44ef91f0b808",
+      "name": "Creo Transacciones Cliente"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "historical_cases",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        2528
+      ],
+      "id": "9300376f-5ad0-45ca-936c-941dfeb0b99b",
+      "name": "Creo Historical Cases"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM transactions t \nWHERE t.merchant = $1",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.merchant }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1840,
+        2528
+      ],
+      "id": "23fa9d76-f17f-4782-9abd-c1c4131c2bb8",
+      "name": "Obtengo Historial del Comercio",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "merchant_history",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        2528
+      ],
+      "id": "5531252e-32d9-41a8-baaa-881b6f51e5e2",
+      "name": "Creo Historial del Comercio"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"transaction\":{{ $('¿Transacción encontrada?').item.json.transactions }},\n  \"logs\":{{ $('Creo Logs').item.json.logs }},\n  \"client_transactions\":{{ $('Creo Transacciones Cliente').item.json.transactions }},\n  \"historical_cases\":{{ $('Creo Historical Cases').item.json.historical_cases }},\n  \"merchant_history\": {{ $('Creo Historial del Comercio').item.json.merchant_history }},\n  \"metrics\":{\n    \"merchant\":{\n      \"monthly_transactions\": {{ $('Métricas del comercio mensuales').item.json.total_transactions }},\n      \"monthly_chargebacks\": {{ $('Métricas del comercio mensuales').item.json.total_chargebacks }},\n      \"chargeback_rate\":{{ $('Métricas del comercio mensuales').item.json.chargeback_rate }},\n      \"monthly_volume_usd\": {{ $('Métricas del comercio mensuales').item.json.monthly_volume }}\n    },\n\"client\": {\n      \"transactions_24h\": {{ $('Transacciones del Cliente').item.json.total_transactions_24h }},\n      \"distinct_countries_24h\": {{ $('Transacciones del Cliente').item.json.different_countries }},\n      \"chargebacks_6m\": {{ $('Contracargo en 6 Meses').item.json.total_chargebacks_6m }},\n      \"channel_amount\": {{ $('Monto acumulado por canal').item.json }}\n    },\n\"case\": {\n      \"days_since_transaction_to_claim\": {{ $('Vencimiento Contracargo').item.json.days_elapsed? $('Vencimiento Contracargo').item.json:0 }}\n    }\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        3440,
+        2528
+      ],
+      "id": "60e1efbc-9884-4d89-b489-8d802b021f4d",
+      "name": "Payload Transaccion"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        96,
+        2960
+      ],
+      "id": "c94fc42d-bfd5-4a74-b0fb-d101c4f4c7a8",
+      "name": "Responder "
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$input.first().json;\nreturn [{json:{statusCode:400,response:{error:'invalid_request',message:'La solicitud no es válida.',details:r.errors}}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        2960
+      ],
+      "id": "903d2c8a-cf66-49b1-a7e5-4744697a3b70",
+      "name": "Respuesta - solicitud inválida"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$input.first().json;\nreturn [{json:{statusCode:404,response:{error:'transaction_not_found',transaction_id:r.transaction_id,message:'No existe una transacción con ese ID en PostgreSQL; no se generó recomendación.'}}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        2944
+      ],
+      "id": "05395139-e6c4-481c-9fd5-dd4fd67afaed",
+      "name": "Respuesta - transacción inexistente"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        4000,
+        2192
+      ],
+      "id": "fd646449-c02d-48ff-9e9f-5d3358fcbe4b",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        3968,
+        2704
+      ],
+      "id": "9388f43d-a1c9-480a-be7f-12c61d1c2955",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-5.6-luna",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        3952,
+        3056
+      ],
+      "id": "44f0b14c-476f-49ba-be2c-595c9b682cf5",
+      "name": "OpenRouter Chat Model2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search and retrieve internal policies relevant to the merchant's commercial obligations, chargeback rates, risk thresholds, transaction limits, contractual requirements, and compliance procedures.\n\nUse this tool when investigating which business rules apply to a merchant or transaction, and whether available evidence indicates potential non-compliance.\n\nGenerate specific semantic queries based on the transaction and merchant context. Return the relevant policy content and source identifiers to support evidence-based findings.\n\nDo not invent policies, thresholds, or exceptions. Retrieved policies define the applicable rules; they do not independently prove a violation.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "chargeback_knowledge",
+          "mode": "list",
+          "cachedResultName": "chargeback_knowledge"
+        },
+        "topK": 5,
+        "options": {
+          "searchFilterJson": "\n{\n  \"must\": [\n    {\n      \"key\": \"metadata.source_type\",\n      \"match\": {\n        \"value\": \"internal_policy\"\n      }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.4,
+      "position": [
+        4864,
+        2272
+      ],
+      "id": "f46e7460-2195-496c-bc81-4bf3da6911cb",
+      "name": "search_internal_policies",
+      "credentials": {
+        "qdrantApi": {
+          "id": "GpLd19LNd5ttPFRO",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "=openai/text-embedding-3-small",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        4512,
+        2384
+      ],
+      "id": "ddee3010-75ae-4a53-870c-c972d7dd76d4",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "ekwQUy3g454OKao6",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search and retrieve historical chargeback cases with commercial characteristics similar to the transaction under investigation.\n\nUse this tool to identify precedents involving merchant behavior, chargeback patterns, transaction characteristics, commercial risks, or comparable disputes.\n\nGenerate semantic queries based on the merchant's available evidence and relevant commercial circumstances. Return matching cases with their identifiers, observations, previous resolutions, and reasons for similarity.\n\nTreat historical cases as supporting context, not authoritative decisions. Do not assume previous resolutions were correct or that similar cases necessarily share the same outcome.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "chargeback_knowledge",
+          "mode": "list",
+          "cachedResultName": "chargeback_knowledge"
+        },
+        "topK": 5,
+        "options": {
+          "searchFilterJson": "\n{\n  \"must\": [\n    {\n      \"key\": \"metadata.source_type\",\n      \"match\": {\n        \"value\": \"historical_case\"\n      }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.4,
+      "position": [
+        4512,
+        2240
+      ],
+      "id": "7f7f4496-92d2-416d-a517-d2acd893d7ab",
+      "name": "search_similar_cases",
+      "credentials": {
+        "qdrantApi": {
+          "id": "GpLd19LNd5ttPFRO",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/text-embedding-3-small",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        4864,
+        2432
+      ],
+      "id": "c3b33887-2faf-41b0-979a-d669c97fa689",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "ekwQUy3g454OKao6",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n\"merchant_agent\":{{ $('Commercial Analyst Agent').item.json.output }}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        5072,
+        2000
+      ],
+      "id": "3b6455e5-b213-458c-84dd-b16ec167d110",
+      "name": "Salida Agente Comercio"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n\"operational_agent\":{{ $('Operational Analyst Agent').item.json.output.replaceAll(\"```json\",\"\").replaceAll(\"```\", \"\") }}}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        5104,
+        2544
+      ],
+      "id": "1d2b9d8c-d204-4eab-afe1-8b6e922e18c8",
+      "name": "Salida Agente Operativo"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        5456,
+        2496
+      ],
+      "id": "8fb93d92-e0d5-4794-aa30-6a6e6b15f999",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n\"client_agent\":{{ $('Client Analyst Agent').item.json.output }}}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        5120,
+        2880
+      ],
+      "id": "f0742680-68ca-41a9-a607-33f6214fd85c",
+      "name": "Salida Agente de Clientes"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "output",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        5696,
+        2512
+      ],
+      "id": "6e4be297-afa4-4074-a56d-6f3638052ecd",
+      "name": "Genero Output"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        6096,
+        2736
+      ],
+      "id": "91fc0b6c-2414-47c8-8ead-67a6b2c0babd",
+      "name": "OpenRouter Chat Model3",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"payload\": {{$('Payload Transaccion').item.json}},\n  \"agents\":{{ $json.output }}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        5920,
+        2512
+      ],
+      "id": "f8f0ff25-599e-418b-bf75-60ac5ba3bec4",
+      "name": "Obtengo output"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=\n {{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        6432,
+        2512
+      ],
+      "id": "0e614a8f-4fdd-440a-9a26-ba4d4e65790d",
+      "name": "Output Analizador"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        6720,
+        2736
+      ],
+      "id": "9c443f74-4a3e-4e8e-a704-f7064ac23cee",
+      "name": "OpenRouter Chat Model4",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=\n {{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        7056,
+        2512
+      ],
+      "id": "4f037bc2-8619-4384-995a-fa6fb7f4030e",
+      "name": "Output Critico"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        7312,
+        2720
+      ],
+      "id": "ea1ed1f1-7ee0-4e47-90eb-964f51301b5c",
+      "name": "OpenRouter Chat Model5",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this:\n##Transaction information##\n{{ $('Payload Transaccion').item.json.transaction.toJsonString() }}\n##Historical Cases Information##\n{{ $('Payload Transaccion').item.json.historical_cases.toJsonString() }}\n\n##History of Merchant##\n{{ $('Payload Transaccion').item.json.historical_cases.toJsonString() }}\n\n##Matrics of Merchant##\n{{ $('Payload Transaccion').item.json.metrics.merchant.toJsonString() }}",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_comercial\").system_prompt }}",
+          "maxIterations": 15
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4096,
+        1984
+      ],
+      "id": "d92a0334-294c-427a-8adc-cf22bbac0198",
+      "name": "Commercial Analyst Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this:\n##Transaction Information##\n{{ $('Payload Transaccion').item.json.transaction.toJsonString() }}\n\n##Logs Information##\n{{ $('Payload Transaccion').item.json.logs.toJsonString() }}\n\n##Client Transactions##\n{{ $('Payload Transaccion').item.json.client_transactions.toJsonString() }}\n\n##Historical cases##\n{{ $('Payload Transaccion').item.json.historical_cases.toJsonString() }}\n\n##Metrics##\n{{ $('Payload Transaccion').item.json.metrics.client.toJsonString() }}\n\n##Metrics##\n{{ $('Payload Transaccion').item.json.metrics.case.toJsonString() }}\n",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_operativo\").system_prompt }}",
+          "maxIterations": 15
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3968,
+        2544
+      ],
+      "id": "9137893a-7cce-4d26-9b6e-8e4446a47ded",
+      "name": "Operational Analyst Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this:\n{{ $('Payload Transaccion').item.json.toJsonString() }}",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_cliente\").system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3952,
+        2880
+      ],
+      "id": "e8860b1b-8665-4071-b619-d7b998adb06e",
+      "name": "Client Analyst Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this:\n{{ $('Obtengo output').item.json.toJsonString() }}",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_analizador\").system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        6096,
+        2512
+      ],
+      "id": "cabc9291-5c48-4d8c-adea-b9b3e0729d05",
+      "name": "Focused Chargeback Analysis Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this:\n{{ $('Output Analizador').item.json.toJsonString() }}",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_critico\").system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        6720,
+        2512
+      ],
+      "id": "13450bf4-5dc9-4010-a1e2-41ca72f5321f",
+      "name": "Operational Critic & Improvement Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this:\n{{ $('Output Critico').item.json.toJsonString() }}",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_solucionador\").system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        7312,
+        2512
+      ],
+      "id": "83623a46-6753-4d6b-ba53-e0f78941e81d",
+      "name": "Chargeback Resolution Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-6-luna",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        7968,
+        2720
+      ],
+      "id": "5f17de4b-7f2e-4558-a1ad-e28cdc1f44b8",
+      "name": "OpenRouter Chat Model6",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "=\n {{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        7696,
+        2512
+      ],
+      "id": "d5d663a5-b6d7-4097-ab68-c32b0a23ac0f",
+      "name": "Output Analisis Final"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        8960,
+        2512
+      ],
+      "id": "bb2e0313-51ac-46f5-b11f-64058742a810",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "html": "{{ $json.output }}"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        8304,
+        2512
+      ],
+      "id": "a32e085a-bfa9-446d-9f3f-70bed64c4ea1",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    t.channel,\n    SUM(t.amount) AS total_amount,\n    COUNT(*) AS total_transactions\nFROM transactions t\nWHERE t.client = (\n    SELECT client\n    FROM transactions\n    WHERE transaction_id = $1\n)\nAND DATE(t.transaction_date) = (\n    SELECT DATE(transaction_date)\n    FROM transactions\n    WHERE transaction_id = $1\n)\nGROUP BY t.channel;",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.transaction_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2704,
+        2528
+      ],
+      "id": "792b735b-d05b-43da-b1cc-98910bd678cc",
+      "name": "Monto acumulado por canal",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    COUNT(*) AS total_transactions_24h,\n    COUNT(DISTINCT t.country) AS different_countries\nFROM transactions t\nWHERE t.client = (\n    SELECT client\n    FROM transactions\n    WHERE transaction_id = $1\n)\nAND t.transaction_date BETWEEN\n    (\n        SELECT transaction_date - INTERVAL '24 hours'\n        FROM transactions\n        WHERE transaction_id = $1\n    )\n    AND\n    (\n        SELECT transaction_date\n        FROM transactions\n        WHERE transaction_id = $1\n    );",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.transaction_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2464,
+        2528
+      ],
+      "id": "dae0b78d-906d-4a64-96c4-7975c48b7202",
+      "name": "Transacciones del Cliente",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH target AS (\n    SELECT \n        t.client,\n        COALESCE(MAX(hc.opened_at), t.transaction_date) AS ref_date\n    FROM transactions t\n    LEFT JOIN historical_cases hc \n        ON hc.transaction_id = t.transaction_id\n    WHERE t.transaction_id = $1\n    GROUP BY t.client, t.transaction_date\n)\nSELECT\n    COUNT(hc.case_id) AS total_chargebacks_6m\nFROM historical_cases hc\nJOIN transactions t\n    ON hc.transaction_id = t.transaction_id\nJOIN target\n    ON t.client = target.client\nWHERE hc.opened_at >= target.ref_date - INTERVAL '6 months'\n  AND hc.opened_at <= target.ref_date;",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.transaction_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2944,
+        2528
+      ],
+      "id": "a36fa925-fa11-494d-aab6-83f2f75b7a66",
+      "name": "Contracargo en 6 Meses",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    COUNT(*) AS total_transactions,\n    SUM(t.amount) AS monthly_volume,\n    COUNT(*) FILTER (\n        WHERE t.status IN ('Contracargo iniciado', 'En disputa')\n    ) AS total_chargebacks,\n    ROUND(\n        COUNT(*) FILTER (\n            WHERE t.status IN ('Contracargo iniciado', 'En disputa')\n        ) * 100.0 / NULLIF(COUNT(*), 0),\n        2\n    ) AS chargeback_rate\nFROM transactions t\nWHERE t.merchant = (\n    SELECT merchant\n    FROM transactions\n    WHERE transaction_id = $1\n)\nAND DATE_TRUNC('month', t.transaction_date) = (\n    SELECT DATE_TRUNC('month', transaction_date)\n    FROM transactions\n    WHERE transaction_id = $1\n);",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.transaction_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2240,
+        2528
+      ],
+      "id": "0415a885-deb2-4266-8a03-cd7d337dd6c9",
+      "name": "Métricas del comercio mensuales",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    t.transaction_id,\n    MAX(t.transaction_date),\n    MIN(hc.opened_at) AS claim_date,\n    MAX(ABS(hc.opened_at::date - t.transaction_date::date)) AS days_elapsed\nFROM transactions t\nJOIN historical_cases hc\n    ON t.transaction_id = hc.transaction_id\nWHERE t.transaction_id = $1\n    GROUP BY t.transaction_id;",
+        "options": {
+          "queryReplacement": "={{ $('¿Transacción encontrada?').item.json.transactions.transaction_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        3168,
+        2528
+      ],
+      "id": "65a2a67d-eebd-422b-9910-68ba84e4724c",
+      "name": "Vencimiento Contracargo",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this:\n## Resolver Information##\n{{ $('Output Analisis Final').item.json.toJsonString() }}\n\n## Critic Information ##\n{{ $('Output Critico').item.json.toJsonString() }}\n\n## Analyst Information ##\n{{ $('Output Analizador').item.json.toJsonString() }}\n\n## Transaction Information##\n{{ $('Payload Transaccion').item.json.toJsonString() }}",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_redactor\").system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        7968,
+        2512
+      ],
+      "id": "be4de55a-2788-4a14-81cf-726e722832c1",
+      "name": "Chargeback Redactor Agent"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "investigation",
+          "mode": "list",
+          "cachedResultName": "investigation"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "transaction_id": "={{ $json.transaction_id }}",
+            "status": "processing"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "investigation_id",
+              "displayName": "investigation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "transaction_id",
+              "displayName": "transaction_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recommendation",
+              "displayName": "recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "output_agents",
+              "displayName": "output_agents",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "report_html",
+              "displayName": "report_html",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "workflow_version",
+              "displayName": "workflow_version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        -880,
+        2560
+      ],
+      "id": "0c41acf1-6e86-487e-8dbd-84e276cdb960",
+      "name": "Registro de Investigacion",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    pp.agent_name,\n    pv.version,\n    pv.system_prompt,\n    pv.model_name,\n    pp.updated_at AS deployed_at\nFROM production_prompt pp\nINNER JOIN prompt_version pv\n    ON pp.prompt_version_id = pv.id\n    AND pp.agent_name = pv.agent_name\nORDER BY pp.agent_name ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        -704,
+        2560
+      ],
+      "name": "Consultar Prompts en Produccion",
+      "id": "834258d6-4785-4aa5-89a9-6df905f35f85",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "prompts",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        2560
+      ],
+      "id": "fcf9ab0a-0d3a-4668-a8ff-3a69dd2016b7",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "investigation",
+          "mode": "list",
+          "cachedResultName": "investigation"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "investigation_id": "={{ $('Registro de Investigacion').item.json.investigation_id }}",
+            "status": "finished",
+            "recommendation": "={{ $('Output Analisis Final').item.json.recommended_status }}",
+            "output_agents": "={{$('Genero Persistencia').item.json}}",
+            "report_html": "={{ $('HTML').item.json.html }}",
+            "workflow_version": "v0"
+          },
+          "matchingColumns": [
+            "investigation_id"
+          ],
+          "schema": [
+            {
+              "id": "investigation_id",
+              "displayName": "investigation_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "transaction_id",
+              "displayName": "transaction_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "recommendation",
+              "displayName": "recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "output_agents",
+              "displayName": "output_agents",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "report_html",
+              "displayName": "report_html",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "workflow_version",
+              "displayName": "workflow_version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        8688,
+        2512
+      ],
+      "id": "9b9ce6ef-eca3-4b7a-92f8-1600ab6e0a32",
+      "name": "Insert or update rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "ExfxsVbBPRSWoaNq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"agente_comercio\":{{$('Salida Agente Comercio').item.json}},\n  \"agente_operativo\":{{$('Salida Agente Operativo').item.json}},\n  \"agente_cliente\":{{$('Salida Agente de Clientes').item.json}},\n  \"agente_analizador\":{{$('Output Analizador').item.json}},\n  \"agente_critico\":{{$('Output Critico').item.json}},\n  \"agente_solucionador\":{{$('Output Analisis Final').item.json}},\n  \"agente_redactor\":{{$('Chargeback Redactor Agent').item.json}},\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        8496,
+        2512
+      ],
+      "id": "dbf7afee-6821-4fdb-8cd8-7c5615dc4d9e",
+      "name": "Genero Persistencia"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Investigar contracargo1": {
+      "main": [
+        [
+          {
+            "node": "Validar y normalizar solicitud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar y normalizar solicitud": {
+      "main": [
+        [
+          {
+            "node": "Registro de Investigacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Solicitud válida?": {
+      "main": [
+        [
+          {
+            "node": "Buscar transacción exacta1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta - solicitud inválida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar transacción exacta1": {
+      "main": [
+        [
+          {
+            "node": "¿Transacción encontrada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Transacción encontrada?": {
+      "main": [
+        [
+          {
+            "node": "Obtengo Logs de Transaccion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta - transacción inexistente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtengo Logs de Transaccion": {
+      "main": [
+        [
+          {
+            "node": "Creo Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtengo Transacciones del cliente": {
+      "main": [
+        [
+          {
+            "node": "Creo Transacciones Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtengo Casos Historicos": {
+      "main": [
+        [
+          {
+            "node": "Creo Historical Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creo Logs": {
+      "main": [
+        [
+          {
+            "node": "Obtengo Transacciones del cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creo Transacciones Cliente": {
+      "main": [
+        [
+          {
+            "node": "Obtengo Casos Historicos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creo Historical Cases": {
+      "main": [
+        [
+          {
+            "node": "Obtengo Historial del Comercio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtengo Historial del Comercio": {
+      "main": [
+        [
+          {
+            "node": "Creo Historial del Comercio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creo Historial del Comercio": {
+      "main": [
+        [
+          {
+            "node": "Métricas del comercio mensuales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta - solicitud inválida": {
+      "main": [
+        [
+          {
+            "node": "Responder ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta - transacción inexistente": {
+      "main": [
+        [
+          {
+            "node": "Responder - 405",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Payload Transaccion": {
+      "main": [
+        [
+          {
+            "node": "Commercial Analyst Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Client Analyst Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Operational Analyst Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Commercial Analyst Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Operational Analyst Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Client Analyst Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_internal_policies": {
+      "ai_tool": [
+        [
+          {
+            "node": "Commercial Analyst Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Operational Analyst Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Client Analyst Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "search_similar_cases",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_similar_cases": {
+      "ai_tool": [
+        [
+          {
+            "node": "Commercial Analyst Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Operational Analyst Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Client Analyst Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "search_internal_policies",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salida Agente Comercio": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salida Agente Operativo": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Salida Agente de Clientes": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Genero Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genero Output": {
+      "main": [
+        [
+          {
+            "node": "Obtengo output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Focused Chargeback Analysis Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtengo output": {
+      "main": [
+        [
+          {
+            "node": "Focused Chargeback Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Operational Critic & Improvement Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Analizador": {
+      "main": [
+        [
+          {
+            "node": "Operational Critic & Improvement Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Chargeback Resolution Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Critico": {
+      "main": [
+        [
+          {
+            "node": "Chargeback Resolution Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commercial Analyst Agent": {
+      "main": [
+        [
+          {
+            "node": "Salida Agente Comercio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Operational Analyst Agent": {
+      "main": [
+        [
+          {
+            "node": "Salida Agente Operativo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client Analyst Agent": {
+      "main": [
+        [
+          {
+            "node": "Salida Agente de Clientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Focused Chargeback Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "Output Analizador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Operational Critic & Improvement Agent": {
+      "main": [
+        [
+          {
+            "node": "Output Critico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chargeback Resolution Agent": {
+      "main": [
+        [
+          {
+            "node": "Output Analisis Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model6": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Chargeback Redactor Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Analisis Final": {
+      "main": [
+        [
+          {
+            "node": "Chargeback Redactor Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "Genero Persistencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monto acumulado por canal": {
+      "main": [
+        [
+          {
+            "node": "Contracargo en 6 Meses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transacciones del Cliente": {
+      "main": [
+        [
+          {
+            "node": "Monto acumulado por canal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contracargo en 6 Meses": {
+      "main": [
+        [
+          {
+            "node": "Vencimiento Contracargo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Métricas del comercio mensuales": {
+      "main": [
+        [
+          {
+            "node": "Transacciones del Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vencimiento Contracargo": {
+      "main": [
+        [
+          {
+            "node": "Payload Transaccion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chargeback Redactor Agent": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registro de Investigacion": {
+      "main": [
+        [
+          {
+            "node": "Consultar Prompts en Produccion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Prompts en Produccion": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "¿Solicitud válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert or update rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genero Persistencia": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "2a83a144-48ac-40a5-b646-dacc407c9f39",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "11af54e561fa24fe86e771caaf156588bfe06a4ae0b879eaaafe60cda362e3a2"
+  },
+  "nodeGroups": [],
+  "id": "0kZslETc0P7ZEN4p",
+  "tags": []
+}

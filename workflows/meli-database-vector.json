@@ -1,0 +1,618 @@
+{
+  "name": "meli-database-vector",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Ingesta de Excel",
+        "formDescription": "Este formulario sirve para poder realizar la ingesta de los datos en excel",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "dataset",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -512,
+        80
+      ],
+      "id": "5b1e1bff-070a-477f-baf0-81365458ce5d",
+      "name": "On form submission",
+      "webhookId": "08689f67-319a-429e-b44e-faf6e1ec00af"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "headerRow": true,
+          "range": "1",
+          "sheetName": "Casos Históricos"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        784,
+        -160
+      ],
+      "id": "22b80a6f-f82b-4e24-aed4-418f884e6858",
+      "name": "Extract Casos Historicos"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "=data",
+        "options": {
+          "headerRow": true,
+          "range": "1",
+          "sheetName": "Políticas Internas"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        752,
+        304
+      ],
+      "id": "f3418171-e92a-4c1e-869f-8121508ae9ff",
+      "name": "Extract Politicas Internas"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/chargeback_knowledge",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qdrantApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"vectors\": {\n    \"\": {\n      \"size\": 1536,\n      \"distance\": \"Cosine\",\n      \"on_disk\": false,\n      \"hnsw_config\": {\n        \"m\": 24,\n        \"payload_m\": 24,\n        \"ef_construct\": 256\n      },\n      \"datatype\": \"float32\"\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -128,
+        80
+      ],
+      "id": "6d3d6b89-354a-4b08-bd9c-3edb9a4c5165",
+      "name": "Crear internal_knowledge en Qdrant",
+      "credentials": {
+        "qdrantApi": {
+          "id": "GpLd19LNd5ttPFRO",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/chargeback_knowledge/index?wait=true",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qdrantApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        208,
+        80
+      ],
+      "id": "48b09aab-5d11-4e08-a3b4-b09aaf4c8cbe",
+      "name": "Creamos indices",
+      "credentials": {
+        "qdrantApi": {
+          "id": "GpLd19LNd5ttPFRO",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fields = [\n  \"metadata.source_type\",\n  \"metadata.source_id\",\n  \"metadata.transaction_id\"\n];\n\nreturn fields.map(field => ({\n  json: {\n    field_name: field,\n    field_schema: \"keyword\"\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        80
+      ],
+      "id": "1c66f5f8-f33f-4b77-9045-afb9a1086690",
+      "name": "Creamos payloads"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "openai/text-embedding-3-small"
+            },
+            {
+              "name": "input",
+              "value": "={{ $json.text_for_embedding }}"
+            },
+            {
+              "name": "dimensions",
+              "value": "={{1536}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        304
+      ],
+      "id": "c842d99f-dcf1-462b-bcf2-9d8ca0d4b55f",
+      "name": "Embeddings2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const row = item.json;\n\n  // Extraemos el código de política, por ejemplo POL-FRD-001\n  const policyCode = String(row[\"Política\"] ?? \"\")\n    .match(/POL-[A-Z]+-\\d+/)?.[0] ?? null;\n\n  return {\n    json: {\n      source_type: \"internal_policy\",\n      source_id: policyCode ?? String(row[\"Política\"]),\n      text_for_embedding: [\n        `Categoría: ${row[\"Categoría\"]}`,\n        `Política: ${row[\"Política\"].split(\"—\")[1]}`,\n        `Descripción: ${row[\"Descripción\"]}`,\n      ].join(\"\\n\"),\n      data: {\n        category: row[\"Categoría\"],\n        policy: row[\"Política\"],\n        policy_code: policyCode,\n        description: row[\"Descripción\"],\n        reference: row[\"Referencia\"]\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        304
+      ],
+      "id": "2f7c5632-eb87-40af-9355-48f18fc84b15",
+      "name": "Normalizar Politicas"
+    },
+    {
+      "parameters": {
+        "jsCode": "const responses = $input.all();\nconst { v5: uuidv5 } = require('uuid');\nconst NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';\n\nconst points = responses.map((item, index) => {\n  const policy = $(\"Normalizar Politicas\").itemMatching(index).json;\n  const vector = item.json.data?.[0]?.embedding;\n\n  if (!Array.isArray(vector) || vector.length !== 1536) {\n    throw new Error(`Embedding inválido para ${policy.source_id}`);\n  }\n\n  return {\n    id: uuidv5(`${policy.source_type}:${policy.source_id}`, NAMESPACE),\n    vector,\n    payload: {\n      page_content: policy.text_for_embedding,\n      metadata: {\n        source_type: policy.source_type,\n        source_id: policy.source_id,\n        ...policy.data\n      }\n    }\n  };\n});\n\nreturn [{ json: { points } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        304
+      ],
+      "id": "fb4a75df-f9b3-42b9-bd6b-ceec2c0d8d75",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://qdrant:6333/collections/chargeback_knowledge/points?wait=true",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qdrantApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2400,
+        32
+      ],
+      "id": "55b486f8-89cf-49dd-9b43-3e91f17151fd",
+      "name": "HTTP Request1",
+      "credentials": {
+        "qdrantApi": {
+          "id": "GpLd19LNd5ttPFRO",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openRouterApi",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "openai/text-embedding-3-small"
+            },
+            {
+              "name": "input",
+              "value": "={{ $json.text_for_embedding }}"
+            },
+            {
+              "name": "dimensions",
+              "value": "={{1536}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1232,
+        -160
+      ],
+      "id": "941798ad-c7cd-416a-a252-1e3871e63120",
+      "name": "Embeddings3",
+      "credentials": {
+        "openRouterApi": {
+          "id": "wEwfxbNva2I1LglZ",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const responses = $input.all();\nconst cases = $(\"Normalizar Casos Históricos\").all();\nconst { v5: uuidv5 } = require('uuid');\nconst NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';\n\nif (responses.length !== cases.length) {\n  throw new Error(\"Cantidad de embeddings y casos diferente\");\n}\n\nconst points = responses.map((item, index) => {\n  const historicalCase = cases[index].json;\n  const vector = item.json.data?.[0]?.embedding;\n\n  if (!Array.isArray(vector) || vector.length !== 1536) {\n    throw new Error(\n      `Embedding inválido: ${historicalCase.source_id}`\n    );\n  }\n\n  return {\n    id: uuidv5(`${historicalCase.source_type}:${historicalCase.source_id}`, NAMESPACE),\n    vector,\n    payload: {\n      page_content: historicalCase.text_for_embedding,\n      metadata: {\n        source_type: historicalCase.source_type,\n        source_id: historicalCase.source_id,\n        ...historicalCase.data\n      }\n    }\n  };\n});\n\nreturn [{ json: { points } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        -160
+      ],
+      "id": "a029581f-b42b-4185-a4ec-95e6e51a9083",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const row = item.json;\n\n  const caseId = String(row[\"ID Caso\"]);\n  const transactionId = String(row[\"ID Transacción\"]);\n\n  return {\n    json: {\n      source_type: \"historical_case\",\n      source_id: caseId,\n      transaction_id: transactionId,\n\n      text_for_embedding: [\n        `Motivo del contracargo: ${row.Motivo}`,\n        `Observaciones: ${row.Observaciones ?? \"\"}`\n      ].join(\"\\n\"),\n\n      data: {\n        transaction_id: transactionId,\n        reason: row.Motivo,\n        resolution: row.Resolución,\n        resolution_days: Number(row[\"Tiempo Resolución (días)\"]),\n        analyst: row.Analista,\n        observations: row.Observaciones ?? null,\n        opened_at: row[\"Fecha Apertura\"],\n        closed_at: row[\"Fecha Cierre\"]\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        -160
+      ],
+      "id": "964465ab-4a2e-4aae-98e6-9306d28bb7b9",
+      "name": "Normalizar Casos Históricos"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "points",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        1648,
+        -160
+      ],
+      "id": "0a22e97a-e5c5-411b-bbb9-4427e7952b84",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "points",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        304
+      ],
+      "id": "738de505-6e88-422f-88a3-80c7c5cddd01",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2000,
+        32
+      ],
+      "id": "e2c496ae-99ed-4ab9-9530-873a207428d2",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "points",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        32
+      ],
+      "id": "875d2cbe-ae61-4cec-b9a1-5ede43d51125",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/.n8n-files/{{ $binary.dataset.fileName }}",
+        "dataPropertyName": "dataset",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        80
+      ],
+      "id": "79e47c06-1b0d-4bd9-8255-2afcc6ff74ad",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/home/node/.n8n-files/{{ $('On form submission').item.binary.dataset.fileName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        608,
+        80
+      ],
+      "id": "bd9346dd-f2f9-43e0-96dd-d6d6b18ef017",
+      "name": "Read/Write Files from Disk1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "results",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        432,
+        80
+      ],
+      "id": "fd4e1b96-0faa-4920-91e1-718ecd68d37f",
+      "name": "Aggregate1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Casos Historicos": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Casos Históricos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Politicas Internas": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Politicas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear internal_knowledge en Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Creamos payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creamos indices": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Creamos payloads": {
+      "main": [
+        [
+          {
+            "node": "Creamos indices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Politicas": {
+      "main": [
+        [
+          {
+            "node": "Embeddings2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings3": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Casos Históricos": {
+      "main": [
+        [
+          {
+            "node": "Embeddings3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Crear internal_knowledge en Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk1": {
+      "main": [
+        [
+          {
+            "node": "Extract Casos Historicos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Politicas Internas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "aa10c4cb-4939-45d2-b62d-0c745e36b339",
+  "meta": {
+    "instanceId": "11af54e561fa24fe86e771caaf156588bfe06a4ae0b879eaaafe60cda362e3a2"
+  },
+  "nodeGroups": [],
+  "id": "qlwpSZErwJg4mnOZ",
+  "tags": []
+}
