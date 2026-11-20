@@ -6,7 +6,7 @@
 
 ### Estrategia
 
-n8n ejecuta consultas parametrizadas de **solo lectura** y construye payloads especializados. El parámetro `$1` representa `transaction_id` salvo indicación contraria. Las métricas deben llevar período, moneda, fecha de referencia y estado de calidad cuando estén disponibles. `NULL` significa **desconocido/no calculado**, no cero.
+n8n ejecuta consultas parametrizadas de **solo lectura** y prepara con sus resultados el contexto para los agentes. Salvo que indique lo contrario, `$1` representa el `transaction_id`. Siempre que estén disponibles, las métricas deberían incluir el período, la moneda, la fecha de referencia y la calidad del dato. `NULL` significa **desconocido o no calculado**, no cero.
 
 ### 4.1. Recuperación de hechos
 
@@ -35,7 +35,7 @@ SELECT * FROM historical_cases
 WHERE transaction_id = $1;
 ```
 
-**Historial del cliente y del comercio:** en estas dos consultas `$1` se reemplaza por el valor `transaction.client` o `transaction.merchant`, respectivamente.
+**Historial del cliente y del comercio:** para estas consultas, reemplazá `$1` por `transaction.client` o `transaction.merchant`, según corresponda.
 
 ```sql
 SELECT * FROM transactions WHERE client = $1;
@@ -55,7 +55,7 @@ SELECT * FROM transactions WHERE merchant = $1;
 
 #### A. Actividad del cliente en 24 horas
 
-La siguiente consulta reproduce el criterio de referencia de la documentación. **Advertencia:** si `transaction_date` es `DATE`, no tiene hora y no permite verificar una ventana móvil de 24 horas; se necesita un timestamp real para aplicar la política estrictamente.
+La consulta siguiente sigue el criterio de referencia de la documentación. **Ojo:** si `transaction_date` es de tipo `DATE`, no incluye la hora y no alcanza para comprobar una ventana móvil de 24 horas. Para aplicar la política estrictamente hace falta un timestamp.
 
 ```sql
 SELECT COUNT(*) AS transactions_24h,
@@ -89,11 +89,11 @@ AND DATE(t.transaction_date) = (
 GROUP BY t.channel;
 ```
 
-Para **IVR** se contrasta el monto **individual** con USD 500; para **App Móvil**, el acumulado diario del cliente con USD 3.000. Se deben validar moneda, huso horario y estados elegibles.
+Para **IVR**, se compara el monto de cada operación con USD 500. Para **App Móvil**, se compara el acumulado diario del cliente con USD 3.000. Antes de usar estos valores, hay que validar la moneda, el huso horario y qué estados de transacción se incluyen.
 
 #### C. Reincidencia de contracargos en seis meses
 
-**SQL ilustrativo, no ejecutar sin verificar el esquema.** La columna `historical_cases.opened_at` no está confirmada.
+**Esta consulta es ilustrativa: no la ejecutes sin revisar el esquema.** No está confirmado que exista la columna `historical_cases.opened_at`.
 
 ```sql
 SELECT COUNT(DISTINCT hc.case_id) AS chargebacks_6m
@@ -112,11 +112,11 @@ AND hc.opened_at <= (
 );
 ```
 
-La consulta cuenta **casos de todas las transacciones del cliente**, no únicamente los de la transacción investigada. Debe definirse qué reclamo es el investigado si hay varios y cuál es la fuente oficial de aperturas.
+La consulta cuenta **casos de todas las transacciones del cliente**, no solo los asociados a la transacción investigada. Si hay varios reclamos, primero hay que identificar cuál se está analizando y confirmar cuál es la fuente oficial de la fecha de apertura.
 
 #### D. Días desde la compra hasta el reclamo
 
-**SQL ilustrativo, no ejecutar sin verificar `opened_at`.**
+**Esta consulta es ilustrativa: no la ejecutes sin confirmar que existe `opened_at`.**
 
 ```sql
 SELECT t.transaction_id,
@@ -127,16 +127,16 @@ JOIN historical_cases hc ON hc.transaction_id = t.transaction_id
 WHERE t.transaction_id = $1;
 ```
 
-No usar `CURRENT_DATE`: el período se calcula **hasta la fecha de apertura del reclamo**, no hasta hoy. Si hay varios casos, se evalúa el `case_id` correcto.
+No uses `CURRENT_DATE`: el plazo se calcula **hasta la fecha en que se abrió el reclamo**, no hasta hoy. Si hay más de un caso, hay que tomar el `case_id` que corresponde.
 
 ### 4.3. Métricas comerciales: criterios de cálculo
 
-La documentación confirma consultas anteriores al agente para:
+La documentación indica que estas consultas se hacen antes de llamar al agente:
 
-- **Tasa mensual de contracargos:** agrupar las transacciones del comercio por mes calendario, contar transacciones y detectar CB mediante casos asociados o estados de disputa. Evitar contar dos veces una operación con varios registros. Esta tasa es **preliminar** hasta validar la definición oficial de POL-CB-004.
-- **Volumen mensual:** agrupar por comercio y mes, calcular `COUNT(*)` y `SUM(amount)` y separar montos por estado. No llamar `monthly_volume_usd` al resultado sin confirmar que todos los importes están denominados o convertidos a USD.
+- **Tasa mensual de contracargos:** agrupar las transacciones del comercio por mes calendario, contarlas e identificar los contracargos a partir de los casos relacionados o de los estados de disputa. Hay que evitar contar más de una vez una transacción con varios registros. La tasa es **preliminar** hasta confirmar la definición oficial de POL-CB-004.
+- **Volumen mensual:** agrupar por comercio y mes, calcular `COUNT(*)` y `SUM(amount)`, y separar los montos según el estado. No llamar al resultado `monthly_volume_usd` hasta confirmar que todos los importes estén expresados o convertidos a USD.
 
-No se reproduce una query comercial exacta porque la documentación describe su lógica, pero **no incluye su SQL íntegro**. Tampoco se inventa una tabla de contracargos o columnas de fecha no verificadas.
+No incluyo una consulta comercial exacta porque la documentación explica la lógica, pero **no trae el SQL completo**. Tampoco supongo que exista una tabla de contracargos ni agrego columnas de fecha que no estén verificadas.
 
 ### 4.4. Payload de métricas
 
@@ -162,10 +162,10 @@ No se reproduce una query comercial exacta porque la documentación describe su 
 }
 ```
 
-Este JSON es un **contrato ilustrativo**, no una respuesta real. n8n completa únicamente los campos que puede sustentar con datos confiables.
+Este JSON es un **ejemplo del formato esperado**, no una respuesta real. n8n solo completa los campos que puede respaldar con datos confiables.
 
 ## Regla de integración
 
-Las consultas se ejecutan en nodos PostgreSQL de n8n **antes** de los agentes. Ningún agente tiene herramientas SQL. `NULL` indica dato desconocido o no validado, no cero. Las queries que dependen de `opened_at` son ejemplos condicionados a verificar el esquema.
+Las consultas se ejecutan en los nodos de PostgreSQL de n8n **antes** de llamar a los agentes. Ningún agente tiene acceso directo a SQL. `NULL` indica que el dato se desconoce o no está validado; no significa cero. Antes de usar las consultas que dependen de `opened_at`, hay que confirmar que esa columna exista y que tenga el significado esperado.
 
 Ver [arquitectura](README.md) y [RAG](RAG.md).

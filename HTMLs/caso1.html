@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informe de Investigación de Contracargo — TXN-00005</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f3f5f7;
+      --surface: #ffffff;
+      --ink: #1f2937;
+      --muted: #596579;
+      --line: #d9e0e8;
+      --accent: #24476b;
+      --accent-soft: #edf3f8;
+      --warning: #805b16;
+      --warning-soft: #fbf5e8;
+      --reject: #8f3434;
+      --reject-soft: #f8eded;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .report {
+      width: min(100% - 32px, 1040px);
+      margin: 32px auto;
+    }
+
+    .report-header,
+    .section,
+    .resolution-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .report-header {
+      padding: 28px 30px;
+      border-top: 4px solid var(--accent);
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0 0 20px;
+      color: #17283a;
+      font-size: clamp(1.55rem, 3vw, 2rem);
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      color: #213b56;
+      font-size: 1.2rem;
+      line-height: 1.3;
+    }
+
+    h3 {
+      margin: 0 0 6px;
+      color: #263b51;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    .metadata {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0;
+    }
+
+    .metadata div {
+      min-width: 0;
+      padding: 11px 12px;
+      background: #f7f9fb;
+      border: 1px solid #e5eaf0;
+      border-radius: 6px;
+    }
+
+    .metadata dt {
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .metadata dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+      font-weight: 600;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .status-recorded {
+      background: #f1f4f7;
+      color: #36485c;
+    }
+
+    .status-recommendation {
+      background: var(--reject-soft);
+      border-color: #e6c6c6;
+      color: var(--reject);
+    }
+
+    main {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .section {
+      padding: 22px 24px;
+    }
+
+    .summary {
+      border-left: 4px solid var(--accent);
+    }
+
+    .finding-list,
+    .criticism-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .finding,
+    .criticism {
+      padding: 14px 15px;
+      background: #fbfcfd;
+      border: 1px solid #e4e9ef;
+      border-radius: 7px;
+    }
+
+    .finding p,
+    .criticism p {
+      margin-top: 5px;
+    }
+
+    .evidence {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .references {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+
+    .reference {
+      display: inline-block;
+      padding: 2px 7px;
+      background: var(--accent-soft);
+      border: 1px solid #d8e3ed;
+      border-radius: 4px;
+      color: #294b6b;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-bottom: 7px;
+      padding: 2px 7px;
+      background: var(--warning-soft);
+      border: 1px solid #eadbb8;
+      border-radius: 4px;
+      color: var(--warning);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .resolution-card {
+      padding: 20px 22px;
+      background: #fffafa;
+      border-color: #e6c6c6;
+    }
+
+    .resolution-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .resolution-heading h2 {
+      margin: 0;
+    }
+
+    .resolution-label {
+      display: inline-block;
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      background: var(--reject-soft);
+      border: 1px solid #e6c6c6;
+      border-radius: 6px;
+      color: var(--reject);
+      font-weight: 700;
+    }
+
+    .action-list {
+      margin: 0;
+      padding-left: 1.35rem;
+    }
+
+    .action-list li {
+      padding-left: 4px;
+      margin: 0 0 9px;
+    }
+
+    .action-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    .limitation {
+      background: #fffdf8;
+      border-left: 4px solid #b58b3e;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .report {
+        width: min(100% - 20px, 1040px);
+        margin: 12px auto;
+      }
+
+      .report-header,
+      .section {
+        padding: 19px 17px;
+      }
+
+      .metadata {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .resolution-heading {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .metadata {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        color: #111827;
+        font-size: 11pt;
+      }
+
+      .report {
+        width: 100%;
+        margin: 0;
+      }
+
+      .report-header,
+      .section,
+      .resolution-card {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      .section,
+      .report-header,
+      .resolution-card {
+        background: #ffffff;
+      }
+
+      main {
+        gap: 10px;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .finding,
+      .criticism {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="report">
+    <header class="report-header">
+      <p class="eyebrow">Investigación de pagos</p>
+      <h1>Informe de Investigación de Contracargo</h1>
+      <dl class="metadata">
+        <div>
+          <dt>Transacción</dt>
+          <dd>TXN-00005</dd>
+        </div>
+        <div>
+          <dt>Comercio</dt>
+          <dd>MercadoLibre</dd>
+        </div>
+        <div>
+          <dt>ID del cliente</dt>
+          <dd>CLI-0007</dd>
+        </div>
+        <div>
+          <dt>Importe</dt>
+          <dd>USD 1.826,75</dd>
+        </div>
+        <div>
+          <dt>Estado registrado</dt>
+          <dd><span class="status status-recorded">Contracargo iniciado</span></dd>
+        </div>
+        <div>
+          <dt>Disposición recomendada</dt>
+          <dd><span class="status status-recommendation">Rechazar contracargo</span></dd>
+        </div>
+        <div>
+          <dt>Fecha de transacción</dt>
+          <dd>02/07/2024</dd>
+        </div>
+        <div>
+          <dt>Método de pago / canal</dt>
+          <dd>Cripto / IVR</dd>
+        </div>
+      </dl>
+    </header>
+
+    <main>
+      <section class="section summary" aria-labelledby="resumen">
+        <h2 id="resumen">Resumen ejecutivo</h2>
+        <p>La investigación recomienda rechazar el contracargo porque el pago figura como realizado con Cripto, método excluido de elegibilidad por POL-EXC-003. El reclamo se inició dentro del plazo de 120 días de POL-CB-001, pero ese cumplimiento no elimina la exclusión indicada.</p>
+        <p>El expediente no permite confirmar si el comercio respondió ni si venció el plazo previsto en POL-CB-003. También se identificaron controles de procesamiento y de gestión del comercio que requieren verificación. La disposición es una recomendación pendiente de revisión autorizada, no una acción ejecutada.</p>
+      </section>
+
+      <section class="section" aria-labelledby="hallazgos">
+        <h2 id="hallazgos">Hallazgos relevantes de la investigación</h2>
+        <div class="finding-list">
+          <article class="finding">
+            <h3>Elegibilidad: exclusión por método de pago</h3>
+            <p>El método registrado para TXN-00005 es Cripto. POL-EXC-003 excluye las transacciones con criptomonedas de chargeback; este es el fundamento determinante de la recomendación de rechazo.</p>
+            <p class="evidence"><strong>Estado:</strong> Confirmado según los datos registrados.</p>
+            <div class="references" aria-label="Referencias de política">
+              <span class="reference">POL-EXC-003</span>
+            </div>
+          </article>
+
+          <article class="finding">
+            <h3>Plazo de presentación cumplido</h3>
+            <p>El reclamo se inició 0 días después de la transacción, dentro del límite de 120 días. El cumplimiento del plazo temporal no revoca otras restricciones de elegibilidad.</p>
+            <p class="evidence"><strong>Estado:</strong> Confirmado según las fechas y métricas suministradas.</p>
+            <div class="references" aria-label="Referencias de política">
+              <span class="reference">POL-CB-001</span>
+              <span class="reference">POL-EXC-003</span>
+            </div>
+          </article>
+
+          <article class="finding">
+            <h3>Respuesta del comercio y plazo procedimental sin confirmar</h3>
+            <p>El estado «Contracargo iniciado» no acredita si el comercio presentó una respuesta ni si vencieron los 10 días hábiles. POL-CB-003 prevé una resolución automática a favor del cliente si se cumplen sus condiciones; el expediente no permite confirmar que se hayan cumplido. La recomendación de rechazo considera que esta consecuencia no altera la exclusión, aunque la interacción entre ambas políticas requiere aclaración explícita.</p>
+            <p class="evidence"><strong>Estado:</strong> No verificable con los registros disponibles.</p>
+            <div class="references" aria-label="Referencias de política">
+              <span class="reference">POL-CB-003</span>
+              <span class="reference">POL-EXC-003</span>
+            </div>
+          </article>
+
+          <article class="finding">
+            <h3>Importe por encima del límite para el canal IVR</h3>
+            <p>El importe de USD 1.826,75 supera el límite de USD 500 establecido para operaciones procesadas por IVR. Se confirma que el importe excede el umbral, pero no consta qué validación o acción de procesamiento se aplicó. Este hallazgo no determina por sí mismo el resultado del chargeback.</p>
+            <p class="evidence"><strong>Estado:</strong> Exceso confirmado; procesamiento y validación no verificados.</p>
+            <div class="references" aria-label="Referencias de política">
+              <span class="reference">POL-FRD-003</span>
+            </div>
+          </article>
+
+          <article class="finding">
+            <h3>Umbrales de contracargos del comercio</h3>
+            <p>La tasa mensual informada es 50% (1 contracargo y 2 transacciones mensuales), lo que activa medidas de revisión y suspensión preventiva conforme a POL-CB-004. No hay evidencia que permita confirmar si se ejecutaron; este indicador no determina la elegibilidad de esta transacción.</p>
+            <p class="evidence"><strong>Estado:</strong> Métricas informadas; ejecución de medidas no verificada.</p>
+            <div class="references" aria-label="Referencias de política">
+              <span class="reference">POL-CB-004</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="critica">
+        <h2 id="critica">Observaciones operativas y mejoras</h2>
+        <div class="criticism-list">
+          <article class="criticism">
+            <span class="tag">Criterio por aclarar</span>
+            <h3>Interacción entre exclusión y resolución automática</h3>
+            <p>La relación entre POL-EXC-003 y la posible resolución automática prevista por POL-CB-003 no está suficientemente fundamentada en el expediente. Esto limita la trazabilidad del razonamiento, aunque la recomendación recibida sigue siendo rechazar el contracargo.</p>
+            <p><strong>Medida propuesta:</strong> comprobar si hubo respuesta del comercio y si venció el plazo aplicable; definir y documentar un criterio explícito para resolver la interacción entre ambas políticas.</p>
+          </article>
+
+          <article class="criticism">
+            <span class="tag">Riesgo potencial; no constituye una infracción confirmada</span>
+            <h3>Control del límite de importe por IVR</h3>
+            <p>El importe supera el umbral de POL-FRD-003, pero la información disponible no demuestra que la operación se haya procesado en incumplimiento del control.</p>
+            <p><strong>Medida propuesta:</strong> revisar los registros de procesamiento de esta transacción e implementar una validación que bloquee operaciones por IVR superiores a USD 500 y deje constancia de su resultado.</p>
+          </article>
+
+          <article class="criticism">
+            <span class="tag">Riesgo operativo; ejecución no verificada</span>
+            <h3>Trazabilidad de las medidas activadas por la tasa mensual</h3>
+            <p>No puede comprobarse si se realizaron la revisión y la suspensión preventiva que activan los umbrales de POL-CB-004. La falta de registros disponibles no demuestra que las medidas se hayan omitido.</p>
+            <p><strong>Medida propuesta:</strong> verificar su ejecución y registrar la relación entre cada umbral que activa una medida y la acción correspondiente.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="resolution-card" aria-labelledby="resolucion">
+        <div class="resolution-heading">
+          <h2 id="resolucion">Resolución recomendada</h2>
+          <span class="resolution-label">Rechazar contracargo</span>
+        </div>
+        <p>Se recomienda presentar el caso para revisión autorizada con disposición de rechazo. El fundamento decisivo es POL-EXC-003: el método de pago registrado, Cripto, está excluido de chargeback. Que el reclamo se haya iniciado dentro del plazo de POL-CB-001 satisface el requisito temporal, pero no anula esa exclusión.</p>
+        <p>La recomendación también debe dejar constancia de la incertidumbre sobre la respuesta del comercio y el vencimiento del plazo de POL-CB-003. El análisis recibido concluye que una eventual resolución automática no modifica la exclusión; sin embargo, el criterio que concilia ambas políticas debe justificarse y verificarse antes de cerrar la revisión. No consta que el rechazo haya sido ejecutado.</p>
+        <div class="references" aria-label="Políticas determinantes">
+          <span class="reference">POL-EXC-003 — política determinante</span>
+          <span class="reference">POL-CB-001</span>
+          <span class="reference">POL-CB-003</span>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="acciones">
+        <h2 id="acciones">Próximas acciones</h2>
+        <ol class="action-list">
+          <li>Presentar la recomendación de rechazo para revisión autorizada, señalando que se basa en POL-EXC-003 y que no consta como una acción ejecutada.</li>
+          <li>Verificar los registros de respuesta del comercio y el vencimiento del plazo de POL-CB-003; aclarar y documentar el criterio aplicado frente a la exclusión de POL-EXC-003.</li>
+          <li>Revisar los registros de procesamiento de TXN-00005 para determinar qué validación se aplicó al importe superior al límite de IVR y mejorar la trazabilidad del control.</li>
+          <li>Verificar si se ejecutaron las medidas activadas por POL-CB-004 y registrar la relación entre los umbrales y las acciones correspondientes.</li>
+        </ol>
+      </section>
+
+      <section class="section limitation" aria-labelledby="limitaciones">
+        <h2 id="limitaciones">Limitaciones de evidencia</h2>
+        <p>No se aportaron registros de respuesta del comercio ni información suficiente para determinar si venció el plazo de POL-CB-003. Tampoco se dispone de evidencia sobre la validación aplicada al procesamiento por IVR o sobre la ejecución de las medidas activadas por POL-CB-004. Estas carencias impiden confirmar esos aspectos procedimentales y operativos; no prueban por sí mismas incumplimientos.</p>
+        <p class="note">La interpretación de la relación entre POL-CB-003 y POL-EXC-003 requiere una justificación expresa en la revisión final.</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

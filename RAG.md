@@ -4,7 +4,7 @@
 
 ## 3. RAG: recuperación aumentada por generación
 
-El **RAG** aporta al LLM conocimiento documental recuperado en el momento de investigar, sin depender exclusivamente del conocimiento del modelo. En este sistema se usa para **políticas internas** y **casos históricos similares**, no para reemplazar las consultas exactas de PostgreSQL.
+Uso **RAG** para que los agentes puedan consultar documentos relevantes mientras investigan, en lugar de depender solamente de lo que el modelo ya sabe. En este proyecto sirve para buscar **políticas internas** y **casos históricos parecidos**; no reemplaza las consultas exactas que hacemos en PostgreSQL.
 
 ### Flujo de recuperación
 
@@ -19,7 +19,7 @@ flowchart LR
     A --> O[Políticas evaluadas + evidencia + incertidumbre]
 ```
 
-**Configuración documentada en el export anterior:**
+En el export anterior aparecen estos valores. Algunos todavía necesitan verificarse en la configuración activa:
 
 - Colección: `chargeback_knowledge`.
 - Modelo de embeddings: `text-embedding-3-small`, normalmente **1536 dimensiones** (verificar configuración efectiva).
@@ -27,9 +27,9 @@ flowchart LR
 - `topK = 5` por búsqueda en el export anterior; no garantiza recuperar todo el catálogo.
 - Distancia **Cosine** planteada en el diseño, pendiente de confirmar en la configuración real de Qdrant.
 
-**Chunking definido conceptualmente:** una política completa por fragmento, incluyendo identificador, requisito y excepciones; un caso histórico por fragmento cuando su tamaño lo permita, conservando hechos y resolución. El workflow de ingesta no está disponible en la documentación, por lo que no se puede confirmar `chunk_size`, `chunk_overlap` ni el splitter real.
+**Cómo planteo dividir los documentos:** dejar cada política completa en un fragmento, con su identificador, requisitos y excepciones. Para los casos históricos, usar un fragmento por caso cuando el tamaño lo permita, sin perder los hechos ni la resolución. No tengo documentado el workflow de ingesta, así que no puedo confirmar el `chunk_size`, el `chunk_overlap` ni qué splitter se usa realmente.
 
-Los investigadores realizan búsquedas amplias, expanden consultas con conceptos y sinónimos, deduplican políticas y buscan precedentes relacionados con las **condiciones de las políticas**, no solamente con el motivo del reclamo. La similitud vectorial **no demuestra** que una norma se active ni que un caso anterior se haya resuelto correctamente.
+Los investigadores hacen búsquedas amplias, prueban conceptos y sinónimos, eliminan políticas duplicadas y buscan antecedentes relacionados con las **condiciones de las políticas**, no solo con el motivo del reclamo. Que dos textos sean parecidos **no demuestra** que una política aplique ni que el caso anterior se haya resuelto bien.
 
 ### ¿Por qué PostgreSQL y Qdrant?
 
@@ -40,10 +40,10 @@ Los investigadores realizan búsquedas amplias, expanden consultas con conceptos
 | Encontrar una política expresada con otras palabras | Qdrant | Similitud semántica |
 | Recuperar precedentes narrativamente parecidos | Qdrant | Búsqueda por significado |
 
-`/points/scroll` en Qdrant permite filtrar payloads exactos, pero **no es una búsqueda vectorial**. No sustituye las relaciones, cálculos y transacciones de PostgreSQL.
+Qdrant también permite filtrar payloads exactos con `/points/scroll`, pero eso **no es una búsqueda vectorial**. Tampoco reemplaza las relaciones, los cálculos ni las transacciones que manejamos en PostgreSQL.
 
 ## Límites de verificación
 
-La configuración mencionada corresponde al export anterior; deben verificarse colección, filtros, dimensión, distancia, `topK` y el workflow real de ingesta. Una búsqueda vectorial no garantiza recuperar todas las políticas; para auditorías exhaustivas conviene una recuperación determinística complementaria.
+Los valores de configuración de arriba salen de un export anterior. Hay que confirmar la colección, los filtros, la dimensión, la distancia, `topK` y cómo funciona la ingesta actual. Además, una búsqueda vectorial no garantiza encontrar todas las políticas; para auditorías exhaustivas conviene complementarla con una recuperación determinística.
 
 Ver [arquitectura](README.md) y [diagrama](DIAGRAMA_SOLUCION.md).

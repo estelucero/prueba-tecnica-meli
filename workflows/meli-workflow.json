@@ -29,7 +29,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        592,
+        720,
         2944
       ],
       "id": "1ffcbd4e-8dbf-438d-98f3-3d430c3f814f",
@@ -763,7 +763,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Analyze this:\n{{ $('Output Analizador').item.json.toJsonString() }}",
+        "text": "=Analyze this:\n## Analitycs information ##\n{{ $('Output Analizador').item.json.toJsonString() }}\n\n## Agents informatio ##\n{{ $('Genero Output').item.json.toJsonString() }}",
         "options": {
           "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_critico\").system_prompt }}"
         }
@@ -776,23 +776,6 @@
       ],
       "id": "13450bf4-5dc9-4010-a1e2-41ca72f5321f",
       "name": "Operational Critic & Improvement Agent"
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "=Analyze this:\n{{ $('Output Critico').item.json.toJsonString() }}",
-        "options": {
-          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_solucionador\").system_prompt }}"
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
-      "position": [
-        7312,
-        2512
-      ],
-      "id": "83623a46-6753-4d6b-ba53-e0f78941e81d",
-      "name": "Chargeback Resolution Agent"
     },
     {
       "parameters": {
@@ -974,7 +957,7 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Analyze this:\n## Resolver Information##\n{{ $('Output Analisis Final').item.json.toJsonString() }}\n\n## Critic Information ##\n{{ $('Output Critico').item.json.toJsonString() }}\n\n## Analyst Information ##\n{{ $('Output Analizador').item.json.toJsonString() }}\n\n## Transaction Information##\n{{ $('Payload Transaccion').item.json.toJsonString() }}",
+        "text": "=Analyze this:\n## Summarize Information##\n{{ $('Output Analisis Final').item.json.toJsonString() }}\n",
         "options": {
           "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_redactor\").system_prompt }}"
         }
@@ -1156,6 +1139,34 @@
     },
     {
       "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"agente_comercio\":{{$('Salida Agente Comercio').item.json}},\n  \"agente_operativo\":{{$('Salida Agente Operativo').item.json}},\n  \"agente_cliente\":{{$('Salida Agente de Clientes').item.json}},\n  \"agente_analizador\":{{$('Output Analizador').item.json}},\n  \"agente_critico\":{{$('Output Critico').item.json}},\n  \"agente_solucionador\":{{$('Output Analisis Final').item.json}},\n  \"agente_redactor\":{{$('Chargeback Redactor Agent').item.json}},\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        8496,
+        2512
+      ],
+      "id": "dbf7afee-6821-4fdb-8cd8-7c5615dc4d9e",
+      "name": "Genero Persistencia"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst htmlContent = $input.first().json.html;\n\nif (!htmlContent || typeof htmlContent !== 'string') {\n  throw new Error('No se encontró el HTML en json.html');\n}\n\nconst buffer = Buffer.from(htmlContent, 'utf8');\n\nconst binaryData = await this.helpers.prepareBinaryData(\n  buffer,\n  'reporte_contracargo.html',\n  'text/html'\n);\n\nreturn [\n  {\n    json: {\n      fileName: 'reporte_contracargo.html'\n    },\n    binary: {\n      data: binaryData\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8496,
+        2704
+      ],
+      "id": "55ae8fd5-80cf-428b-8e3d-b6e6ace692c1",
+      "name": "Obtener HTML"
+    },
+    {
+      "parameters": {
         "operation": "upsert",
         "schema": {
           "__rl": true,
@@ -1280,7 +1291,7 @@
         2512
       ],
       "id": "9b9ce6ef-eca3-4b7a-92f8-1600ab6e0a32",
-      "name": "Insert or update rows in a table",
+      "name": "Update investigation",
       "credentials": {
         "postgres": {
           "id": "ExfxsVbBPRSWoaNq",
@@ -1290,18 +1301,20 @@
     },
     {
       "parameters": {
-        "mode": "raw",
-        "jsonOutput": "={\n  \"agente_comercio\":{{$('Salida Agente Comercio').item.json}},\n  \"agente_operativo\":{{$('Salida Agente Operativo').item.json}},\n  \"agente_cliente\":{{$('Salida Agente de Clientes').item.json}},\n  \"agente_analizador\":{{$('Output Analizador').item.json}},\n  \"agente_critico\":{{$('Output Critico').item.json}},\n  \"agente_solucionador\":{{$('Output Analisis Final').item.json}},\n  \"agente_redactor\":{{$('Chargeback Redactor Agent').item.json}},\n}\n",
-        "options": {}
+        "promptType": "define",
+        "text": "=Analyze this:\n## Imprombements Information ##\n{{ $('Output Critico').item.json.toJsonString() }}\n## Transaction Information ##\n{{ $('Payload Transaccion').item.json.toJsonString()}}\n\n## Analitycs information ##\n{{ $('Output Analizador').item.json.toJsonString() }}",
+        "options": {
+          "systemMessage": "={{ $('Aggregate').item.json.prompts.find(item => item.agent_name === \"agente_resumidor\").system_prompt }}"
+        }
       },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.5,
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
       "position": [
-        8496,
+        7312,
         2512
       ],
-      "id": "dbf7afee-6821-4fdb-8cd8-7c5615dc4d9e",
-      "name": "Genero Persistencia"
+      "id": "83623a46-6753-4d6b-ba53-e0f78941e81d",
+      "name": "Chargeback Summarize Agent"
     }
   ],
   "pinData": {},
@@ -1706,7 +1719,7 @@
       "ai_languageModel": [
         [
           {
-            "node": "Chargeback Resolution Agent",
+            "node": "Chargeback Summarize Agent",
             "type": "ai_languageModel",
             "index": 0
           }
@@ -1717,7 +1730,7 @@
       "main": [
         [
           {
-            "node": "Chargeback Resolution Agent",
+            "node": "Chargeback Summarize Agent",
             "type": "main",
             "index": 0
           }
@@ -1779,17 +1792,6 @@
         ]
       ]
     },
-    "Chargeback Resolution Agent": {
-      "main": [
-        [
-          {
-            "node": "Output Analisis Final",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "OpenRouter Chat Model6": {
       "ai_languageModel": [
         [
@@ -1817,6 +1819,11 @@
         [
           {
             "node": "Genero Persistencia",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Obtener HTML",
             "type": "main",
             "index": 0
           }
@@ -1922,7 +1929,18 @@
         ]
       ]
     },
-    "Insert or update rows in a table": {
+    "Genero Persistencia": {
+      "main": [
+        [
+          {
+            "node": "Update investigation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update investigation": {
       "main": [
         [
           {
@@ -1933,11 +1951,11 @@
         ]
       ]
     },
-    "Genero Persistencia": {
+    "Chargeback Summarize Agent": {
       "main": [
         [
           {
-            "node": "Insert or update rows in a table",
+            "node": "Output Analisis Final",
             "type": "main",
             "index": 0
           }
@@ -1951,7 +1969,7 @@
     "binaryMode": "separate",
     "availableInMCP": true
   },
-  "versionId": "2a83a144-48ac-40a5-b646-dacc407c9f39",
+  "versionId": "0b783637-3ce5-481f-ae78-7db1bdcdd986",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "11af54e561fa24fe86e771caaf156588bfe06a4ae0b879eaaafe60cda362e3a2"
