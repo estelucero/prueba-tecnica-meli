@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informe de Investigación de Contracargo — TXN-00040</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f8;
+      --surface: #ffffff;
+      --text: #202b3c;
+      --muted: #5b687a;
+      --border: #dce3eb;
+      --navy: #18324f;
+      --blue-soft: #edf4fb;
+      --amber: #805b15;
+      --amber-soft: #fff6df;
+      --shadow: 0 8px 24px rgba(22, 39, 58, 0.07);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .report {
+      width: min(100% - 32px, 1040px);
+      margin: 32px auto;
+    }
+
+    .report-header,
+    .section,
+    .resolution {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .report-header {
+      padding: 28px;
+      border-top: 5px solid var(--navy);
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 {
+      color: var(--navy);
+      line-height: 1.25;
+    }
+
+    h1 {
+      margin: 0 0 22px;
+      font-size: clamp(1.6rem, 4vw, 2.15rem);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 1.3rem;
+    }
+
+    h3 {
+      margin: 0 0 7px;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    .metadata {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin: 0;
+    }
+
+    .metadata div {
+      min-width: 0;
+      padding: 11px 13px;
+      background: #f7f9fb;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .metadata dt {
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .metadata dd {
+      margin: 0;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 9px;
+      border: 1px solid #d5b86c;
+      border-radius: 999px;
+      background: var(--amber-soft);
+      color: #67480e;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .recorded-status {
+      display: inline-block;
+      padding: 4px 9px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #f1f3f6;
+      color: #354356;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    main {
+      display: grid;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .section {
+      padding: 23px 25px;
+    }
+
+    .summary {
+      border-left: 4px solid #57799c;
+    }
+
+    .resolution {
+      padding: 24px 25px;
+      border-left: 5px solid #b28a35;
+      background: #fffefa;
+    }
+
+    .resolution h2 {
+      margin-bottom: 10px;
+    }
+
+    .resolution-label {
+      display: inline-block;
+      margin: 0 0 14px;
+      padding: 6px 11px;
+      border: 1px solid #d5b86c;
+      border-radius: 6px;
+      background: var(--amber-soft);
+      color: #67480e;
+      font-weight: 700;
+    }
+
+    .finding-list,
+    .improvement-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .finding,
+    .improvement {
+      padding: 15px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .finding p,
+    .improvement p {
+      margin-bottom: 8px;
+    }
+
+    .finding p:last-child,
+    .improvement p:last-child {
+      margin-bottom: 0;
+    }
+
+    .category {
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .reference {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    ul, ol {
+      margin: 8px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 0 0 7px;
+      padding-left: 2px;
+    }
+
+    li:last-child {
+      margin-bottom: 0;
+    }
+
+    .actions li {
+      margin-bottom: 11px;
+    }
+
+    .note {
+      padding: 13px 15px;
+      border-left: 3px solid #8093a8;
+      background: var(--blue-soft);
+      border-radius: 4px;
+    }
+
+    .limitations {
+      border-left: 4px solid #a68a51;
+    }
+
+    .footer {
+      padding: 14px 4px 4px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: right;
+    }
+
+    @media (max-width: 600px) {
+      .report {
+        width: min(100% - 20px, 1040px);
+        margin: 14px auto;
+      }
+
+      .report-header,
+      .section,
+      .resolution {
+        padding: 19px;
+        border-radius: 9px;
+      }
+
+      .metadata {
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+
+      .metadata div {
+        padding: 9px 10px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .metadata {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      :root {
+        --bg: #ffffff;
+        --surface: #ffffff;
+        --text: #111111;
+        --muted: #444444;
+        --border: #c7c7c7;
+      }
+
+      body {
+        background: #ffffff;
+        color: #111111;
+        font-size: 11pt;
+      }
+
+      .report {
+        width: 100%;
+        margin: 0;
+      }
+
+      .report-header,
+      .section,
+      .resolution {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      .report-header {
+        border-top-width: 3px;
+      }
+
+      main {
+        gap: 12px;
+      }
+
+      .finding,
+      .improvement {
+        break-inside: avoid;
+      }
+
+      h1, h2, h3 {
+        color: #17283a;
+      }
+
+      .footer {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="report">
+    <header class="report-header">
+      <p class="eyebrow">Revisión retrospectiva del caso</p>
+      <h1>Informe de Investigación de Contracargo</h1>
+      <dl class="metadata">
+        <div>
+          <dt>Transacción</dt>
+          <dd>TXN-00040</dd>
+        </div>
+        <div>
+          <dt>Caso asociado</dt>
+          <dd>CB-0037</dd>
+        </div>
+        <div>
+          <dt>Comercio</dt>
+          <dd>Netflix</dd>
+        </div>
+        <div>
+          <dt>Cliente</dt>
+          <dd>CLI-0022</dd>
+        </div>
+        <div>
+          <dt>Importe</dt>
+          <dd>USD 3.301,55</dd>
+        </div>
+        <div>
+          <dt>Fecha de transacción</dt>
+          <dd>15/05/2024</dd>
+        </div>
+        <div>
+          <dt>Estado registrado de la transacción</dt>
+          <dd><span class="recorded-status">Rechazada</span></dd>
+        </div>
+        <div>
+          <dt>Disposición recomendada del contracargo</dt>
+          <dd><span class="status">Pendiente: continuar la investigación</span></dd>
+        </div>
+      </dl>
+    </header>
+
+    <main>
+      <section class="section summary" aria-labelledby="resumen">
+        <h2 id="resumen">Resumen ejecutivo</h2>
+        <p>La investigación del caso CB-0037, asociado al motivo «Cargo post-cancelación», no permite confirmar si el reclamo cumplió el plazo aplicable ni si el comercio presentó una defensa. La fecha de apertura registrada, 08/03/2024, es anterior a la transacción del 15/05/2024, aunque la métrica indica 68 días transcurridos. Además, el caso figura resuelto a favor del cliente, sin que se aporte el fundamento de esa resolución.</p>
+        <p>Se recomienda mantener pendiente la determinación analítica y reconciliar los registros antes de proponer una aceptación o un rechazo. Esto no significa que el caso histórico se haya reabierto ni que se haya ejecutado cambio alguno en su estado.</p>
+      </section>
+
+      <section class="section" aria-labelledby="hallazgos">
+        <h2 id="hallazgos">Hallazgos relevantes de la investigación</h2>
+        <div class="finding-list">
+          <article class="finding">
+            <p class="category">Elegibilidad temporal · Hallazgo no concluyente</p>
+            <h3>No se puede verificar el cumplimiento del plazo</h3>
+            <p>POL-CB-001 permite presentar el reclamo dentro de 120 días. La fecha de apertura y reclamo registrada (08/03/2024) precede a la transacción (15/05/2024), mientras que la métrica informa 68 días transcurridos. Sin una fecha válida de presentación, no es posible determinar si el reclamo fue oportuno.</p>
+            <p class="reference">Evidencia: fechas registradas de TXN-00040 y CB-0037, y métrica de 68 días. Política: POL-CB-001.</p>
+          </article>
+
+          <article class="finding">
+            <p class="category">Respuesta del comercio · Información no disponible</p>
+            <h3>La defensa y su fecha no están documentadas en el material recibido</h3>
+            <p>CB-0037 figura resuelto a favor del cliente, pero no se proporciona el fundamento de esa decisión ni registro de una defensa de Netflix. Tampoco se acredita la ubicación del comercio para confirmar si aplicaría la extensión de plazo contemplada en POL-EXC-004.</p>
+            <p class="reference">Políticas relacionadas: POL-CB-003 y POL-EXC-004.</p>
+          </article>
+
+          <article class="finding">
+            <p class="category">Documentación · Requisito no verificable</p>
+            <h3>No se puede comprobar que estén reunidos los documentos previos</h3>
+            <p>Los registros disponibles contienen únicamente un objeto vacío. No se aportan el comprobante de la transacción, la comunicación con el comercio ni la evidencia del cliente, requeridos por POL-CB-002 antes de avanzar. Su ausencia en el material recibido no demuestra que no existan ni que se haya incumplido el procedimiento.</p>
+            <p class="reference">Política: POL-CB-002.</p>
+          </article>
+
+          <article class="finding">
+            <p class="category">Métrica del comercio · Período por confirmar</p>
+            <h3>La tasa reportada podría activar controles, pero no determina el resultado del caso</h3>
+            <p>Se informan 2 transacciones mensuales, 1 contracargo y una tasa del 50%, por encima de los umbrales de POL-CB-004. Sin identificar el mes calendario correspondiente, no puede confirmarse la aplicación de esa política ni de las medidas asociadas.</p>
+            <p class="reference">Evidencia: métricas del comercio sin período calendario identificado. Política: POL-CB-004.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="critica">
+        <h2 id="critica">Observaciones operativas y mejoras</h2>
+        <p>La información disponible no acredita por sí sola un fallo de gestión. Sí presenta riesgos de trazabilidad y verificación que conviene resolver en la revisión retrospectiva:</p>
+        <div class="improvement-list">
+          <article class="improvement">
+            <h3>Reconciliar la cronología y la asociación entre transacción y caso</h3>
+            <p>La apertura registrada precede a la transacción, la métrica señala 68 días y el caso figura resuelto a favor del cliente. Deben contrastarse los registros fuente de asociación, presentación, respuesta y resolución, incluida la defensa del comercio. Manténgase el resultado histórico registrado salvo que una revisión autorizada justifique otra acción. <span class="reference">POL-CB-001 y POL-CB-003.</span></p>
+          </article>
+          <article class="improvement">
+            <h3>Verificar y dejar trazabilidad de los requisitos documentales</h3>
+            <p>Antes de avanzar cualquier actuación del caso, comprobar y registrar el comprobante de la transacción, la comunicación con el comercio y la evidencia del cliente; mantener bloqueado el avance si falta alguno. La falta de esos documentos en el material recibido no confirma que se haya avanzado sin ellos. <span class="reference">POL-CB-002.</span></p>
+          </article>
+          <article class="improvement">
+            <h3>Confirmar el período de la métrica antes de aplicar controles</h3>
+            <p>Validar el mes calendario al que corresponde la tasa. Solo si el período aplicable supera los umbrales, verificar y documentar la revisión y la suspensión preventiva prescritas; no activar medidas sobre una métrica cuyo período no está confirmado. <span class="reference">POL-CB-004.</span></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="resolution" aria-labelledby="resolucion">
+        <h2 id="resolucion">Resolución recomendada</h2>
+        <p class="resolution-label">Mantener pendiente la determinación · Continuar la investigación</p>
+        <p>No se recomienda aceptar ni rechazar el contracargo todavía. Para aplicar POL-CB-001 se necesita una fecha válida de presentación; para evaluar POL-CB-003 se requiere verificar si hubo defensa y cuándo; y POL-CB-002 exige comprobar la documentación previa.</p>
+        <p>La contradicción entre la cronología y la métrica, junto con la falta de registros de defensa y documentos en el material recibido, impide justificar una decisión final. El resultado histórico de CB-0037 a favor del cliente debe mantenerse distinguido de esta recomendación analítica: no prueba por sí solo que se cumplieran las condiciones de elegibilidad ni que no hubiera defensa.</p>
+        <p><strong>Políticas determinantes:</strong> POL-CB-001, POL-CB-003 y POL-CB-002.</p>
+      </section>
+
+      <section class="section" aria-labelledby="acciones">
+        <h2 id="acciones">Próximas acciones</h2>
+        <ol class="actions">
+          <li>Reconciliar con los registros fuente la asociación entre TXN-00040 y CB-0037, la fecha válida de presentación y las fechas de respuesta y resolución. Conservar el resultado histórico registrado salvo que una revisión autorizada justifique otra acción.</li>
+          <li>Verificar si el comercio presentó una defensa y cuándo, considerando el plazo aplicable, y documentar el resultado.</li>
+          <li>Comprobar y registrar el comprobante de la transacción, la comunicación con el comercio y la evidencia del cliente antes de avanzar, conforme a POL-CB-002.</li>
+          <li>Confirmar el mes calendario de la métrica del comercio y, solo si corresponde, verificar y documentar los controles aplicables de POL-CB-004.</li>
+        </ol>
+      </section>
+
+      <section class="section limitations" aria-labelledby="limitaciones">
+        <h2 id="limitaciones">Limitaciones de evidencia</h2>
+        <p>No se dispone de una cronología verificable que reconcilie la fecha de transacción, la fecha de presentación y la métrica de 68 días; tampoco de la fecha o el registro de defensa del comercio, del fundamento de la resolución histórica ni de los tres documentos requeridos. Además, no se identifica el mes calendario de la métrica comercial. Estas limitaciones impiden verificar los plazos, la documentación previa y la activación de controles, pero no constituyen por sí mismas prueba de incumplimiento o conducta indebida.</p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      Informe basado en la información disponible para TXN-00040 y CB-0037.
+    </footer>
+  </div>
+</body>
+</html>

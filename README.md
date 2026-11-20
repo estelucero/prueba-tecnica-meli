@@ -16,12 +16,12 @@ El sistema sirve como herramienta de apoyo para tomar decisiones: **no ejecuta**
 
 Separé el trabajo en dos partes: por un lado, la búsqueda de **datos concretos**; por otro, la interpretación de las políticas y demás información escrita en lenguaje natural. Después, cada agente tiene una responsabilidad específica para evitar que todos vuelvan a analizar o decidir lo mismo.
 
-| Componente | Función |
-| --- | --- |
-| **n8n** | Recibe el webhook, valida la solicitud, consulta las bases, prepara el contexto, coordina los agentes y devuelve el informe HTML. |
-| **PostgreSQL** | Guarda los datos estructurados de transacciones, eventos, casos y métricas. Las consultas se hacen **antes** de llamar a los agentes. |
-| **Qdrant** | Permite recuperar políticas internas y casos históricos por similitud de significado (RAG). |
-| **Embeddings** | Representan consultas y documentos como vectores para poder compararlos. El export anterior usa `text-embedding-3-small`. |
+| Componente            | Función                                                                                                                                                                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **n8n**               | Recibe el webhook, valida la solicitud, consulta las bases, prepara el contexto, coordina los agentes y devuelve el informe HTML.                                                                              |
+| **PostgreSQL**        | Guarda los datos estructurados de transacciones, eventos, casos y métricas. Las consultas se hacen **antes** de llamar a los agentes.                                                                          |
+| **Qdrant**            | Permite recuperar políticas internas y casos históricos por similitud de significado (RAG).                                                                                                                    |
+| **Embeddings**        | Representan consultas y documentos como vectores para poder compararlos. El export anterior usa `text-embedding-3-small`.                                                                                      |
 | **Siete agentes LLM** | Tres agentes investigan desde distintas perspectivas; el Analizador evalúa las políticas y recomienda una decisión; el Crítico propone mejoras; Summarize prepara el JSON final; y el Redactor genera el HTML. |
 
 **Una decisión importante:** ningún agente consulta SQL directamente. n8n obtiene los registros y calcula las métricas mediante sus nodos de PostgreSQL antes de llamar a los agentes. Los agentes especializados pueden trabajar con las políticas y los antecedentes recuperados desde Qdrant; los agentes posteriores reciben esos resultados y no necesitan repetir la búsqueda.
@@ -68,16 +68,16 @@ Esa decisión pasa al Crítico, que devuelve una evaluación de la recomendació
 
 El JSON final se organiza en estas partes:
 
-| Campo | Qué contiene |
-| --- | --- |
-| `report_status` | La decisión recomendada por la IA: `ACCEPT`, `REJECT` o `PENDING`. Es el estado principal del informe. |
-| `case_information` | Datos de la transacción, cliente, comercio y estado originalmente registrado. |
-| `case_summary` | Una explicación breve de qué pasó y qué motivó la investigación, cuando esa información está documentada. |
-| `investigation` | Qué se analizó y cuáles fueron los hallazgos más importantes. |
-| `similar_cases` | Casos históricos comparables que ya estén identificados en la información recibida. Si no hay, queda vacío. |
-| `resolution` | Por qué se recomienda esa decisión, qué políticas son determinantes y qué evidencia la respalda. |
-| `improvements` | Críticas y mejoras propuestas para corregir o prevenir problemas del proceso. |
-| `next_actions` | Pasos sugeridos para revisar, autorizar o dar seguimiento a la recomendación y a las mejoras. |
+| Campo              | Qué contiene                                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `report_status`    | La decisión recomendada por la IA: `ACCEPT`, `REJECT` o `PENDING`. Es el estado principal del informe.      |
+| `case_information` | Datos de la transacción, cliente, comercio y estado originalmente registrado.                               |
+| `case_summary`     | Una explicación breve de qué pasó y qué motivó la investigación, cuando esa información está documentada.   |
+| `investigation`    | Qué se analizó y cuáles fueron los hallazgos más importantes.                                               |
+| `similar_cases`    | Casos históricos comparables que ya estén identificados en la información recibida. Si no hay, queda vacío. |
+| `resolution`       | Por qué se recomienda esa decisión, qué políticas son determinantes y qué evidencia la respalda.            |
+| `improvements`     | Críticas y mejoras propuestas para corregir o prevenir problemas del proceso.                               |
+| `next_actions`     | Pasos sugeridos para revisar, autorizar o dar seguimiento a la recomendación y a las mejoras.               |
 
 ## Documentación complementaria
 
@@ -99,16 +99,35 @@ El JSON final se organiza en estas partes:
 
 ## 6. Alcance y deuda técnica
 
-Tomé como referencia los workflows incluidos en `workflows/` y actualicé en este README las responsabilidades de los agentes según el diseño que fuimos definiendo. Esto describe la arquitectura prevista; para confirmar que cada cambio esté implementado habría que contrastarlo con la última exportación de n8n.
+A lo largo del desarrollo pude implementar el flujo principal de investigación de contracargos, desde la ingesta de información hasta la generación del informe final. La idea fue integrar distintas herramientas para que el sistema no dependa únicamente de un modelo de lenguaje, sino que pueda trabajar con datos estructurados, consultar documentación relevante y justificar las decisiones que toma.
 
-- **Ingesta:** un formulario recibe archivos y los prepara para cargarlos en PostgreSQL. Otro workflow procesa las políticas internas y los casos históricos para incorporarlos a Qdrant. Además, la investigación se puede iniciar mediante un webhook.
-- **RAG:** se generan embeddings para políticas y casos históricos, y los agentes especializados pueden trabajar con el contenido recuperado durante la investigación.
-- **Agentes:** tres agentes investigan las perspectivas comercial, operativa y del cliente; el Analizador evalúa las políticas y determina una recomendación; el Crítico revisa el razonamiento y propone mejoras; Summarize prepara el JSON final; y el Redactor lo convierte en HTML.
-- **Automatización:** n8n valida la solicitud, consulta las bases, calcula métricas, coordina a los agentes y devuelve el informe HTML.
-- **Observabilidad y registro:** según la documentación del flujo, la investigación se guarda en PostgreSQL junto con su estado, los resultados de los agentes, la recomendación, el informe y una versión del workflow. Esto permite tener un registro del proceso, pero no equivale por sí solo a una observabilidad completa de errores, costos, tiempos y calidad de las respuestas.
-- **Identificación de fallas:** las métricas, los historiales y las políticas permiten detectar algunos patrones e inconsistencias. El Crítico transforma los problemas respaldados por evidencia en propuestas concretas de mejora, pero eso no significa que las mejoras se apliquen automáticamente.
+En cuanto a lo que llegué a implementar, el sistema cuenta con los siguientes componentes:
 
-La **mejora continua** sigue siendo una parte pendiente o por validar: hace falta contar con un circuito que capture feedback, permita detectar errores o alucinaciones, evalúe cambios en los prompts y actualice el índice RAG de forma controlada cuando corresponda.
+Ingesta de datos: desarrollé workflows en n8n para cargar información estructurada en PostgreSQL y preparar las políticas internas y los casos históricos que después se utilizan en el RAG. También incorporé un webhook para iniciar una investigación a partir del identificador de una transacción.
+
+RAG: implementé la búsqueda de políticas y antecedentes mediante Qdrant y embeddings. Esto permite recuperar documentación relevante para cada investigación sin tener que incorporar todas las políticas directamente en los prompts.
+
+Sistema multiagente: desarrollé agentes especializados para analizar la información desde las perspectivas operativa, comercial y del cliente. A partir de sus resultados, el Analizador evalúa las políticas, determina cuáles se cumplen y cuáles no, e identifica las condiciones que realmente influyen en la decisión del contracargo. Después, el Crítico revisa ese razonamiento y propone mejoras, mientras que Summarize consolida la información para que el Redactor genere el informe HTML.
+
+Automatización: utilicé n8n para coordinar todo el proceso, desde las consultas SQL y la preparación de métricas hasta la ejecución de los agentes y la generación del resultado. Una decisión importante fue realizar las consultas a PostgreSQL antes de ejecutar los agentes, de manera que trabajen con información previamente preparada y no tengan que consultar la base de datos por su cuenta.
+
+Observabilidad y trazabilidad: implementé el almacenamiento de las salidas de los agentes en PostgreSQL, lo que permite conservar los resultados de cada etapa de la investigación. También incorporé tablas para guardar y versionar los prompts, junto con una separación entre sus versiones y las utilizadas en producción. De esta manera, puedo conocer qué información generó cada agente y mantener un registro de las instrucciones utilizadas, facilitando el seguimiento y la revisión de las investigaciones.
+
+Identificación de problemas y propuestas de mejora: mediante el Agente Crítico, el sistema puede identificar inconsistencias, posibles incumplimientos y riesgos operativos a partir de los resultados del análisis. Además de señalar esos problemas, propone medidas correctivas o preventivas y explica por qué podrían mejorar el proceso.
+
+### ¿Qué quedó pendiente?
+
+La principal funcionalidad que no llegué a implementar fue el circuito de mejora continua.
+
+Si bien el sistema ya guarda los prompts y las salidas de los agentes, todavía no desarrollé un proceso que utilice automáticamente esa información para evaluar la calidad de las respuestas y mejorar el comportamiento de los agentes.
+
+La idea era aprovechar los resultados almacenados para identificar errores recurrentes, detectar decisiones mal fundamentadas, comparar diferentes versiones de prompts y utilizar las correcciones para mejorar las siguientes investigaciones.
+
+También quedó pendiente implementar un mecanismo para actualizar el RAG a partir de los resultados y del feedback obtenido. Por ejemplo, si durante una investigación se detecta una interpretación incorrecta de una política o se incorpora un nuevo antecedente validado, el sistema podría utilizar esa información para enriquecer la base de conocimiento y evitar repetir errores similares.
+
+Considero que haber incorporado la observabilidad y el versionado de prompts fue un primer paso importante, porque ahora la información necesaria para analizar el comportamiento del sistema queda registrada. Sin embargo, tener esa información almacenada no significa que el sistema ya aprenda de sus errores. Para eso todavía sería necesario desarrollar un workflow que evalúe los resultados, incorpore feedback, valide los cambios y actualice los prompts o la base de conocimiento cuando corresponda.
+
+En definitiva, pude completar el proceso de investigación, análisis y generación de informes, junto con el registro de sus resultados. Lo que quedó como una siguiente etapa fue cerrar el ciclo de mejora continua, para que el sistema pueda mejorar progresivamente a partir de las investigaciones realizadas.
 
 ---
 
