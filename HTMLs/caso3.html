@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informe de Investigación de Contracargo — TXN-00074</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f8;
+      --surface: #ffffff;
+      --text: #1d2939;
+      --muted: #596579;
+      --border: #dce2ea;
+      --accent: #254e70;
+      --accent-soft: #eaf1f7;
+      --warning: #76530b;
+      --warning-soft: #fff6df;
+      --shadow: 0 8px 24px rgba(25, 42, 62, 0.06);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .report {
+      width: min(100% - 32px, 1080px);
+      margin: 32px auto;
+    }
+
+    .report-header,
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .report-header {
+      padding: 28px 30px;
+      border-top: 4px solid var(--accent);
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0 0 22px;
+      font-size: clamp(1.65rem, 4vw, 2.15rem);
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 1.25rem;
+      line-height: 1.3;
+    }
+
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    .metadata {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .meta-item {
+      min-width: 0;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .meta-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .meta-value {
+      display: block;
+      overflow-wrap: anywhere;
+      font-weight: 700;
+    }
+
+    .recommendation {
+      margin-top: 18px;
+      padding: 16px 18px;
+      background: var(--warning-soft);
+      border: 1px solid #ead49a;
+      border-left: 5px solid #a67816;
+      border-radius: 8px;
+    }
+
+    .recommendation strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #5f450c;
+      font-size: 1.05rem;
+    }
+
+    .recommendation span {
+      color: #594d32;
+    }
+
+    main {
+      display: grid;
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .card {
+      padding: 24px 26px;
+      break-inside: avoid;
+    }
+
+    .section-intro {
+      color: var(--muted);
+    }
+
+    .finding-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .finding {
+      padding: 16px;
+      background: #fbfcfe;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      break-inside: avoid;
+    }
+
+    .finding h3 {
+      margin: 0 0 8px;
+      color: var(--accent);
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 2px 4px 0 0;
+      padding: 2px 8px;
+      border: 1px solid #d6e0e9;
+      border-radius: 999px;
+      color: #344b60;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    ul,
+    ol {
+      margin: 8px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 0 0 9px;
+      padding-left: 2px;
+    }
+
+    li:last-child {
+      margin-bottom: 0;
+    }
+
+    .evidence-list {
+      margin-top: 8px;
+      color: #39475a;
+      font-size: 0.94rem;
+    }
+
+    .decision {
+      border-left: 5px solid var(--accent);
+    }
+
+    .decision-label {
+      display: inline-block;
+      margin-bottom: 10px;
+      padding: 5px 10px;
+      background: var(--accent-soft);
+      border: 1px solid #cbd9e5;
+      border-radius: 6px;
+      color: #21445f;
+      font-weight: 700;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .policy-line {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    footer {
+      padding: 16px 4px 4px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      .report {
+        width: min(100% - 20px, 1080px);
+        margin: 12px auto;
+      }
+
+      .report-header,
+      .card {
+        padding: 20px;
+      }
+
+      .metadata {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .finding-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .metadata {
+        grid-template-columns: 1fr;
+      }
+
+      .report-header,
+      .card {
+        padding: 17px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        color: #111827;
+        font-size: 11pt;
+      }
+
+      .report {
+        width: 100%;
+        margin: 0;
+      }
+
+      .report-header,
+      .card {
+        box-shadow: none;
+        border-color: #b8c0ca;
+      }
+
+      .report-header,
+      .card,
+      .finding,
+      .recommendation {
+        break-inside: avoid;
+      }
+
+      .report-header,
+      .card {
+        margin-bottom: 12px;
+      }
+
+      .recommendation,
+      .meta-item,
+      .finding {
+        background: #ffffff;
+      }
+
+      footer {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="report">
+    <header class="report-header">
+      <p class="eyebrow">Investigación de contracargo</p>
+      <h1>Informe de Investigación de Contracargo</h1>
+
+      <div class="metadata" aria-label="Datos de la transacción">
+        <div class="meta-item">
+          <span class="meta-label">Transacción</span>
+          <span class="meta-value">TXN-00074</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Comercio</span>
+          <span class="meta-value">Despegar</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Cliente</span>
+          <span class="meta-value">CLI-0020</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Importe</span>
+          <span class="meta-value">USD 3.252,88</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Fecha de transacción</span>
+          <span class="meta-value">11/07/2024</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Medio de pago</span>
+          <span class="meta-value">Débito MC</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">País y canal</span>
+          <span class="meta-value">COL · App Móvil</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Estado registrado</span>
+          <span class="meta-value">Pendiente revisión</span>
+        </div>
+      </div>
+
+      <div class="recommendation" aria-label="Disposición recomendada">
+        <strong>Disposición recomendada: Continuar investigación</strong>
+        <span>Se recomienda mantener el caso pendiente; esta recomendación no acredita que se haya ejecutado un cambio de estado.</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card" aria-labelledby="resumen">
+        <h2 id="resumen">Resumen ejecutivo</h2>
+        <p>El reclamo se presentó dentro del plazo de 120 días previsto por POL-CB-001, pero la oportunidad temporal no resuelve el fondo. La información disponible no permite verificar la documentación exigida por POL-CB-002 ni la aprobación requerida por POL-CB-005 para procesar el cuarto reclamo del cliente en seis meses.</p>
+        <p>Se recomienda continuar la investigación y no aceptar ni rechazar el contracargo por ahora. También debe aclararse si el comercio fue notificado y dejó vencer el plazo de respuesta, pues, si se acreditan esas condiciones, POL-CB-003 podría afectar la resolución.</p>
+      </section>
+
+      <section class="card" aria-labelledby="hallazgos">
+        <h2 id="hallazgos">Hallazgos relevantes de la investigación</h2>
+        <div class="finding-grid">
+          <article class="finding">
+            <h3>Elegibilidad temporal</h3>
+            <p>El reclamo está dentro del plazo establecido. La métrica registra cero días entre la transacción y el reclamo, frente al máximo de 120 días. Esto permite continuar la evaluación, pero no acredita por sí mismo el fondo del reclamo.</p>
+            <p class="policy-line">Evidencia: transacción del 11/07/2024 y métrica <span class="tag">days_since_transaction_to_claim = 0</span></p>
+            <span class="tag">POL-CB-001</span>
+          </article>
+
+          <article class="finding">
+            <h3>Documentación y aprobación pendientes de verificar</h3>
+            <p>Los registros disponibles no permiten confirmar el comprobante de la transacción, la comunicación con el comercio ni la evidencia del cliente. Además, la métrica registra cuatro contracargos del cliente en los últimos seis meses, lo que activa el requisito de aprobación del jefe de área para procesar el cuarto reclamo. No hay registro de esa aprobación o de un rechazo; la falta de constancia no demuestra que se haya omitido.</p>
+            <p class="policy-line">Evidencia: logs con un objeto vacío; sin documentos ni registro de aprobación aportados.</p>
+            <span class="tag">POL-CB-002</span>
+            <span class="tag">POL-CB-005</span>
+          </article>
+
+          <article class="finding">
+            <h3>Respuesta del comercio no determinada</h3>
+            <p>No hay información suficiente para establecer si se inició y notificó el contracargo, cuándo vencía el plazo aplicable o si el comercio respondió. Por ello, no se puede determinar si corresponde aplicar la consecuencia prevista por falta de respuesta.</p>
+            <p class="policy-line">La ubicación comercial no está disponible y podría influir en el plazo conforme a POL-EXC-004.</p>
+            <span class="tag">POL-CB-003</span>
+            <span class="tag">POL-EXC-004</span>
+          </article>
+
+          <article class="finding">
+            <h3>Controles comerciales y de canal</h3>
+            <p>Las métricas disponibles reportan dos transacciones mensuales, un contracargo y una tasa del 50%, por encima de los umbrales de revisión del 1% y suspensión preventiva del 2% de POL-CB-004. No consta si esos controles se ejecutaron. Por separado, la transacción excede el límite para App Móvil indicado en POL-FRD-003; ese exceso no determina por sí solo el resultado del contracargo.</p>
+            <p class="policy-line">No se aportó el valor numérico del límite de POL-FRD-003 ni evidencia de ejecución de las medidas comerciales.</p>
+            <span class="tag">POL-CB-004</span>
+            <span class="tag">POL-FRD-003</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="operaciones">
+        <h2 id="operaciones">Riesgos operativos y medidas propuestas</h2>
+        <p class="section-intro">La información disponible señala verificaciones pendientes; no confirma que los controles hayan sido omitidos ni que se haya producido una falla operativa.</p>
+        <ul>
+          <li><strong>Trazabilidad de la gestión del contracargo:</strong> registrar el inicio, la notificación al comercio, el plazo de respuesta aplicable —incluida cualquier extensión— y la respuesta recibida. Comprobar si venció el plazo y aplicar POL-CB-003 únicamente si sus condiciones quedan acreditadas.</li>
+          <li><strong>Requisitos previos de procesamiento:</strong> verificar y dejar constancia del comprobante, la comunicación con el comercio y la evidencia del cliente conforme a POL-CB-002; comprobar y registrar la aprobación del jefe de área exigida por POL-CB-005 antes de permitir que el caso avance.</li>
+          <li><strong>Controles del comercio:</strong> verificar y documentar si se realizaron la revisión y la suspensión preventiva previstas por POL-CB-004. Si no se puede acreditar su ejecución, remitir la comprobación al proceso responsable, sin inferir que las medidas fueron omitidas.</li>
+          <li><strong>Control del canal:</strong> verificar el exceso señalado respecto del límite de POL-FRD-003. La alerta requiere revisión operativa, pero no es por sí sola fundamento para aceptar o rechazar el contracargo.</li>
+        </ul>
+      </section>
+
+      <section class="card decision" aria-labelledby="resolucion">
+        <h2 id="resolucion">Resolución recomendada</h2>
+        <span class="decision-label">Continuar investigación — mantener pendiente</span>
+        <p>La recomendación es no aceptar ni rechazar el contracargo en esta etapa. Son determinantes la falta de verificación de los requisitos documentales de POL-CB-002 y de la aprobación requerida por POL-CB-005. El cumplimiento del plazo de POL-CB-001 permite seguir evaluando el caso, pero no resuelve sus méritos.</p>
+        <p>También debe establecerse si hubo inicio y notificación del contracargo y si el comercio dejó vencer el plazo de respuesta. Si esas condiciones se confirman, POL-CB-003 podría disponer una resolución a favor del cliente; por ahora, la evidencia no permite concluirlo, y POL-EXC-004 podría modificar el plazo aplicable.</p>
+        <h3>Evidencia decisiva disponible</h3>
+        <ul class="evidence-list">
+          <li>Los logs contienen únicamente un objeto vacío; no se aportaron el comprobante, la comunicación con el comercio ni la evidencia del cliente.</li>
+          <li>Se registran cuatro contracargos del cliente en seis meses y no hay constancia de la aprobación del jefe de área.</li>
+          <li>La métrica de días desde la transacción hasta el reclamo es cero, dentro del plazo de 120 días de POL-CB-001.</li>
+          <li>No hay registros de inicio, notificación, vencimiento del plazo ni respuesta del comercio para evaluar POL-CB-003.</li>
+        </ul>
+        <p class="policy-line">Políticas determinantes: POL-CB-002 y POL-CB-005. La recomendación es una propuesta de la investigación, no constancia de una acción ya ejecutada.</p>
+      </section>
+
+      <section class="card" aria-labelledby="acciones">
+        <h2 id="acciones">Próximas acciones</h2>
+        <ol>
+          <li>Verificar si se inició y notificó el contracargo, cuál era el plazo de respuesta aplicable —incluida la posible extensión de POL-EXC-004— y si el comercio respondió. Aplicar POL-CB-003 si sus condiciones quedan acreditadas.</li>
+          <li>Reunir o verificar el comprobante de la transacción, la comunicación con el comercio y la evidencia del cliente exigidos por POL-CB-002.</li>
+          <li>Verificar y documentar si el jefe de área aprobó el procesamiento del cuarto reclamo conforme a POL-CB-005.</li>
+          <li>Verificar y documentar la ejecución de la revisión y la suspensión preventiva del comercio previstas por POL-CB-004.</li>
+        </ol>
+      </section>
+
+      <section class="card" aria-labelledby="limitaciones">
+        <h2 id="limitaciones">Limitaciones de evidencia</h2>
+        <p>No se dispone de la documentación de respaldo ni del registro de aprobación necesarios para confirmar el cumplimiento de los requisitos de procesamiento. Tampoco constan la fecha de inicio y notificación del contracargo, el plazo aplicable, la respuesta del comercio ni su ubicación, por lo que no puede evaluarse la posible consecuencia de POL-CB-003 con la consideración de POL-EXC-004.</p>
+        <p>Además, no hay constancia de ejecución de los controles comerciales de POL-CB-004. Estas ausencias limitan la conclusión, pero no demuestran por sí mismas incumplimiento, falta de respuesta del comercio o conducta indebida.</p>
+      </section>
+    </main>
+
+    <footer>
+      Informe basado en la información disponible para TXN-00074. Las verificaciones indicadas permanecen pendientes de acreditación.
+    </footer>
+  </div>
+</body>
+</html>

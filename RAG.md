@@ -1,49 +1,78 @@
-# RAG: recuperación aumentada por generación
+# Recuperación de información con RAG
 
-[Arquitectura](README.md) · [Diagrama](DIAGRAMA_SOLUCION.md) · [RAG](RAG.md) · [Consultas SQL](QUERIES_SQL.md)
+[Arquitectura](README.md) · [Diagrama de la solución](DIAGRAMA_SOLUCION.md) · [RAG](RAG.md) · [Consultas SQL](QUERIES_SQL.md)
 
-## 3. RAG: recuperación aumentada por generación
+## 1. Por qué utilizo RAG
 
-Uso **RAG** para que los agentes puedan consultar documentos relevantes mientras investigan, en lugar de depender solamente de lo que el modelo ya sabe. En este proyecto sirve para buscar **políticas internas** y **casos históricos parecidos**; no reemplaza las consultas exactas que hacemos en PostgreSQL.
+Incorporé RAG (_Retrieval-Augmented Generation_, o generación aumentada por recuperación) para que los investigadores puedan consultar documentación relevante durante el análisis de un contracargo. La idea es que no dependan únicamente del conocimiento del modelo ni de políticas copiadas dentro de un prompt.
 
-### Flujo de recuperación
+En este proyecto, RAG se utiliza principalmente para recuperar **políticas internas** y **casos históricos similares**. Es importante aclarar que esta búsqueda complementa los datos de PostgreSQL, pero no los reemplaza: una política puede encontrarse por similitud semántica, mientras que el estado de una transacción o la cantidad de operaciones de un cliente se obtienen mediante consultas exactas.
+
+## 2. Cómo se recupera la información
 
 ```mermaid
 flowchart LR
     I[Hechos y métricas SQL] --> A[Investigador]
     A --> S[Consulta en lenguaje natural]
-    S --> E[Embedding de consulta]
+    S --> E[Embedding de la consulta]
     E --> Q[(Qdrant)]
     Q --> D[Fragmentos y metadatos de origen]
     D --> A
-    A --> O[Políticas evaluadas + evidencia + incertidumbre]
+    A --> O[Políticas evaluadas, evidencia y dudas]
 ```
 
-En el export anterior aparecen estos valores. Algunos todavía necesitan verificarse en la configuración activa:
+Cada investigador parte de los datos y las métricas que ya preparó n8n. Cuando necesita consultar una política o buscar antecedentes, realiza una búsqueda en lenguaje natural. Esa consulta se convierte en un embedding, que es una representación numérica de su significado.
 
-- Colección: `chargeback_knowledge`.
-- Modelo de embeddings: `text-embedding-3-small`, normalmente **1536 dimensiones** (verificar configuración efectiva).
-- Filtros de metadatos: `metadata.source_type = internal_policy` para normas y `metadata.source_type = historical_case` para precedentes.
-- `topK = 5` por búsqueda en el export anterior; no garantiza recuperar todo el catálogo.
-- Distancia **Cosine** planteada en el diseño, pendiente de confirmar en la configuración real de Qdrant.
+Qdrant compara ese vector con los documentos indexados y devuelve los resultados más cercanos, junto con sus metadatos. Después, el agente utiliza esa información para evaluar qué políticas podrían aplicar y qué antecedentes vale la pena considerar.
 
-**Cómo planteo dividir los documentos:** dejar cada política completa en un fragmento, con su identificador, requisitos y excepciones. Para los casos históricos, usar un fragmento por caso cuando el tamaño lo permita, sin perder los hechos ni la resolución. No tengo documentado el workflow de ingesta, así que no puedo confirmar el `chunk_size`, el `chunk_overlap` ni qué splitter se usa realmente.
+No alcanza con que dos documentos sean parecidos para afirmar que una política aplica o que un caso anterior sirve como prueba. El agente tiene que revisar las condiciones concretas y relacionarlas con la evidencia de la transacción investigada.
 
-Los investigadores hacen búsquedas amplias, prueban conceptos y sinónimos, eliminan políticas duplicadas y buscan antecedentes relacionados con las **condiciones de las políticas**, no solo con el motivo del reclamo. Que dos textos sean parecidos **no demuestra** que una política aplique ni que el caso anterior se haya resuelto bien.
+## 3. Configuración documentada
 
-### ¿Por qué PostgreSQL y Qdrant?
+En un export anterior del workflow quedaron registrados los siguientes parámetros:
 
-| Necesidad | Tecnología | Motivo |
-|---|---|---|
-| Buscar `transaction_id`, logs o casos vinculados | PostgreSQL | Identidad y filtros exactos |
-| Calcular `COUNT`, `SUM`, tasas, períodos y relaciones | PostgreSQL | Agregaciones y consistencia relacional |
-| Encontrar una política expresada con otras palabras | Qdrant | Similitud semántica |
-| Recuperar precedentes narrativamente parecidos | Qdrant | Búsqueda por significado |
+| Parámetro                     | Valor documentado                                          |
+| ----------------------------- | ---------------------------------------------------------- |
+| Colección                     | `chargeback_knowledge`                                     |
+| Modelo de embeddings          | `text-embedding-3-small`                                   |
+| Dimensión habitual del modelo | 1536, pendiente de confirmar en la configuración efectiva  |
+| Filtro para políticas         | `metadata.source_type = internal_policy`                   |
+| Filtro para casos históricos  | `metadata.source_type = historical_case`                   |
+| Resultados por búsqueda       | `topK = 5`                                                 |
+| Distancia vectorial           | Cosine, planteada en el diseño y pendiente de verificación |
 
-Qdrant también permite filtrar payloads exactos con `/points/scroll`, pero eso **no es una búsqueda vectorial**. Tampoco reemplaza las relaciones, los cálculos ni las transacciones que manejamos en PostgreSQL.
+Estos valores corresponden a la documentación disponible del export anterior. Antes de tomarlos como la configuración actual, habría que comprobarlos en el workflow de ingesta y en la colección activa de Qdrant.
 
-## Límites de verificación
+## 4. Cómo organizo los documentos
 
-Los valores de configuración de arriba salen de un export anterior. Hay que confirmar la colección, los filtros, la dimensión, la distancia, `topK` y cómo funciona la ingesta actual. Además, una búsqueda vectorial no garantiza encontrar todas las políticas; para auditorías exhaustivas conviene complementarla con una recuperación determinística.
+Para las políticas, el criterio de diseño es conservar cada norma completa cuando su tamaño lo permita. De esa manera, el agente puede recuperar en un mismo fragmento el identificador, los requisitos, las excepciones y las condiciones que necesita evaluar.
 
-Ver [arquitectura](README.md) y [diagrama](DIAGRAMA_SOLUCION.md).
+Con los casos históricos, busco mantener juntos los hechos relevantes y su resolución, siempre que el tamaño del documento lo permita. La idea es evitar que una fragmentación excesiva haga perder información necesaria para interpretar el antecedente.
+
+Utilice estos metodos debido a que optimice la base de datos vectorial a partir de las consultas que iba a realizar en un futuro el agente.
+
+Durante la búsqueda, los investigadores pueden utilizar distintas expresiones y sinónimos para encontrar políticas relacionadas. También deben evitar repetir documentos y buscar antecedentes por las condiciones relevantes del caso, no solamente por el motivo del reclamo.
+
+## 5. Por qué utilizo PostgreSQL y Qdrant
+
+Al principio puede parecer que ambas bases permiten recuperar la misma información, porque Qdrant también admite filtros exactos sobre los metadatos. Sin embargo, las utilizo para resolver necesidades diferentes.
+
+| Necesidad                                         | Herramienta | Motivo                                                                           |
+| ------------------------------------------------- | ----------- | -------------------------------------------------------------------------------- |
+| Buscar una transacción mediante `transaction_id`  | PostgreSQL  | Necesito identificar un registro exacto.                                         |
+| Recuperar logs y casos asociados                  | PostgreSQL  | Es importante respetar las relaciones entre los datos.                           |
+| Calcular cantidades, acumulados, tasas y períodos | PostgreSQL  | SQL permite hacer agregaciones de forma controlada.                              |
+| Encontrar una política escrita con otras palabras | Qdrant      | Me interesa la similitud de significado, no solo una coincidencia textual.       |
+| Buscar antecedentes narrativamente parecidos      | Qdrant      | Los documentos pueden describir situaciones similares con expresiones distintas. |
+
+Qdrant permite utilizar `/points/scroll` para filtrar registros por metadatos, como un identificador o un tipo de documento. En ese caso, la búsqueda es exacta sobre el payload y **no utiliza la similitud vectorial**.
+
+Eso no significa que Qdrant reemplace a PostgreSQL. Para este proyecto, PostgreSQL sigue siendo la fuente de los datos estructurados, las relaciones y los cálculos. Qdrant se utiliza como una herramienta complementaria para buscar documentación por significado.
+
+## 6. Limitaciones y mejoras pendientes
+
+Una búsqueda vectorial no garantiza recuperar todas las políticas relevantes. Por ejemplo, `topK = 5` devuelve hasta cinco resultados en cada consulta, pero una investigación podría necesitar evaluar una norma que no haya quedado entre esos resultados. Si el objetivo fuera hacer una auditoría exhaustiva de cumplimiento, sería conveniente complementar la búsqueda semántica con una recuperación determinística del catálogo de políticas.
+
+También quedó pendiente integrar el RAG a un proceso de mejora continua. El sistema ya conserva las salidas de los agentes y las versiones de los prompts, pero todavía no cuenta con un workflow que revise automáticamente los resultados validados y actualice la base de conocimiento. Cualquier incorporación de políticas corregidas o nuevos antecedentes debería pasar por controles para evitar que una conclusión incorrecta generada por la IA termine utilizándose como referencia en investigaciones futuras.
+
+Para entender cómo se integra RAG en el proceso completo, se puede consultar el [diagrama de la solución](DIAGRAMA_SOLUCION.md). La preparación de los datos estructurados se explica en [consultas SQL](QUERIES_SQL.md).

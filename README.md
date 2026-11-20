@@ -1,136 +1,160 @@
-# Sistema multiagente de investigación de contracargos
+# Sistema multiagente para la investigación de contracargos
 
-[Arquitectura](README.md) · [Diagrama](DIAGRAMA_SOLUCION.md) · [RAG](RAG.md) · [Consultas SQL](QUERIES_SQL.md)
+[Arquitectura](README.md) · [Diagrama de la solución](DIAGRAMA_SOLUCION.md) · [RAG](RAG.md) · [Consultas SQL](QUERIES_SQL.md)
 
-> En este documento cuento cómo está pensado el sistema y cómo ponerlo en marcha. En los documentos vinculados dejo más detalle sobre cada parte.
+## 1. Objetivo del proyecto
 
-## 1. Objetivo
+El objetivo de este proyecto es automatizar la investigación de contracargos a partir del identificador de una transacción (`transaction_id`). Para hacerlo, desarrollé un sistema que reúne los datos de la operación, consulta las políticas internas, busca antecedentes similares y analiza toda esa información mediante agentes de inteligencia artificial con responsabilidades diferentes.
 
-La idea es poder investigar una transacción a partir de su `transaction_id`: reunir la información de la operación, revisar las políticas internas que podrían aplicar y tener en cuenta los antecedentes disponibles. Con esa información, los agentes evalúan el caso y el sistema genera un informe HTML que explica **qué se investigó, qué políticas fueron importantes, qué decisión recomienda la IA y por qué**. También incluye las críticas y mejoras que se pueden aplicar al proceso.
+Como resultado, el sistema genera un informe HTML que explica qué se investigó, cuáles fueron los hallazgos más importantes, qué decisión recomienda la IA y qué evidencia respalda esa recomendación. También incluye observaciones sobre el proceso y propuestas de mejora.
 
-El informe tiene un estado principal, `report_status`, que puede ser `ACCEPT`, `REJECT` o `PENDING`. Ese valor representa **la decisión recomendada por la IA**, no necesariamente el estado que ya figura en los sistemas. Por ejemplo, si el análisis recomienda rechazar un contracargo, el informe lo muestra como **rechazo recomendado**, pero eso no significa que el rechazo se haya ejecutado.
+Una distinción importante es que la recomendación de la IA no representa necesariamente el estado registrado en la base de datos. En el JSON final utilizo `report_status` para indicar la conclusión del análisis: `ACCEPT`, `REJECT` o `PENDING`. Por ejemplo, si el informe muestra `REJECT`, significa que la IA recomienda rechazar el contracargo, no que ya se haya ejecutado ese rechazo.
 
-El sistema sirve como herramienta de apoyo para tomar decisiones: **no ejecuta** reembolsos, bloqueos ni cambios de estado.
+Por eso, el sistema funciona como una herramienta de apoyo a la toma de decisiones. No realiza reembolsos, bloqueos ni modificaciones de estado en los sistemas operativos.
 
-## 2. Arquitectura
+## 2. Arquitectura y decisiones de diseño
 
-Separé el trabajo en dos partes: por un lado, la búsqueda de **datos concretos**; por otro, la interpretación de las políticas y demás información escrita en lenguaje natural. Después, cada agente tiene una responsabilidad específica para evitar que todos vuelvan a analizar o decidir lo mismo.
+Decidí separar la recuperación de datos de su interpretación. Por un lado, PostgreSQL permite consultar información concreta y calcular métricas. Por otro, Qdrant permite encontrar políticas y casos históricos relacionados por su significado, incluso cuando están redactados con palabras distintas. n8n se encarga de coordinar todo el proceso.
 
-| Componente            | Función                                                                                                                                                                                                        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **n8n**               | Recibe el webhook, valida la solicitud, consulta las bases, prepara el contexto, coordina los agentes y devuelve el informe HTML.                                                                              |
-| **PostgreSQL**        | Guarda los datos estructurados de transacciones, eventos, casos y métricas. Las consultas se hacen **antes** de llamar a los agentes.                                                                          |
-| **Qdrant**            | Permite recuperar políticas internas y casos históricos por similitud de significado (RAG).                                                                                                                    |
-| **Embeddings**        | Representan consultas y documentos como vectores para poder compararlos. El export anterior usa `text-embedding-3-small`.                                                                                      |
-| **Siete agentes LLM** | Tres agentes investigan desde distintas perspectivas; el Analizador evalúa las políticas y recomienda una decisión; el Crítico propone mejoras; Summarize prepara el JSON final; y el Redactor genera el HTML. |
+| Componente | Para qué lo utilizo |
+|---|---|
+| **n8n** | Recibe la solicitud, valida el identificador, ejecuta las consultas, prepara los datos para cada agente y devuelve el informe. |
+| **PostgreSQL** | Almacena información estructurada, como transacciones, eventos y casos históricos. También guarda las salidas de los agentes y las versiones de sus prompts. |
+| **Qdrant** | Permite recuperar políticas internas y antecedentes mediante búsquedas semánticas. |
+| **Embeddings** | Convierten los documentos y las consultas en vectores para comparar su significado. En la configuración documentada anteriormente se utilizó `text-embedding-3-small`. |
+| **Agentes LLM** | Investigan el caso desde distintas perspectivas, integran los resultados, revisan la recomendación y preparan el informe final. |
 
-**Una decisión importante:** ningún agente consulta SQL directamente. n8n obtiene los registros y calcula las métricas mediante sus nodos de PostgreSQL antes de llamar a los agentes. Los agentes especializados pueden trabajar con las políticas y los antecedentes recuperados desde Qdrant; los agentes posteriores reciben esos resultados y no necesitan repetir la búsqueda.
+Una de las principales decisiones fue evitar que los agentes consultaran PostgreSQL directamente. Las consultas SQL y los cálculos se ejecutan desde n8n antes de invocar a los investigadores, que reciben un contexto preparado para su especialidad. Esto permite mantener un mayor control sobre las consultas, reducir la duplicación de trabajo y separar los datos obtenidos de las interpretaciones que hace la IA.
+
+También dividí las responsabilidades entre siete agentes. La intención es que cada uno tenga una función concreta y que las últimas etapas no vuelvan a decidir algo que ya resolvió el Analizador.
+
+Para ver el recorrido completo de una investigación, se puede consultar el [diagrama de la solución](DIAGRAMA_SOLUCION.md). La documentación del [RAG](RAG.md) y las [consultas SQL](QUERIES_SQL.md) explica con más detalle cómo se obtiene la información.
 
 ## 3. Puesta en marcha
 
 ### Levantar los servicios
 
-Desde la carpeta principal del proyecto, levantá los servicios con Docker Compose:
+Desde la carpeta principal del proyecto se pueden iniciar los servicios definidos en `compose.yml` con Docker Compose:
 
 ```bash
 docker compose up -d
 ```
 
-El comando inicia los servicios definidos en `compose.yml`, entre ellos n8n, PostgreSQL y Qdrant. Después podés entrar a n8n desde [http://localhost:5678](http://localhost:5678).
+Entre esos servicios se encuentran n8n, PostgreSQL y Qdrant. Una vez iniciado n8n, se puede acceder desde [http://localhost:5678](http://localhost:5678).
 
-### Importar y ejecutar los workflows
+### Importar los workflows
 
-Importá en n8n los archivos JSON de `workflows/` y ejecutalos en este orden:
+Los archivos JSON de la carpeta `workflows/` se importan en n8n y se ejecutan en el siguiente orden:
 
-1. **`meli-ingesta-postgresql.json`** (`meli-ingesta-postgresql`): carga los datos estructurados en PostgreSQL.
-2. **`meli-database-vector.json`** (`meli-database-vector`): prepara la base vectorial en Qdrant.
-3. **`meli-workflow.json`** (`meli-workflow`): ejecuta el flujo completo de investigación.
+1. **`meli-ingesta-postgresql.json`**: carga los datos estructurados en PostgreSQL.
+2. **`meli-database-vector.json`**: prepara los documentos que se utilizarán en Qdrant.
+3. **`meli-workflow.json`**: ejecuta la investigación completa de un contracargo.
 
-Primero corré los dos workflows que cargan los datos. Recién después ejecutá el flujo completo, que necesita información tanto de PostgreSQL como de Qdrant.
+Es necesario ejecutar primero las ingestas porque el flujo principal depende tanto de los registros almacenados en PostgreSQL como de la información disponible en Qdrant.
 
-## 4. Qué hace cada agente
+## 4. Responsabilidades de los agentes
 
-La idea de dividir el trabajo es que cada agente resuelva una parte concreta de la investigación. Así evitamos repetir evaluaciones, generar conclusiones diferentes sobre el mismo punto o trasladar decisiones al agente que solamente redacta el informe.
+Para organizar la investigación, separé el análisis en distintas etapas. Los tres primeros agentes trabajan sobre perspectivas diferentes del mismo caso. Después, los agentes restantes integran la información, determinan una recomendación, revisan el análisis y generan el informe.
 
-1. **Comercial:** revisa las políticas, condiciones, obligaciones, restricciones y beneficios vinculados al comercio. Para eso utiliza su historial y las métricas que ya preparó n8n. Su trabajo es investigar desde el lado comercial y dejar documentadas las políticas evaluadas, con su evidencia.
-2. **Operativo:** analiza los controles antifraude, el procesamiento de la operación, las autorizaciones, los eventos, los plazos y la documentación disponible. Identifica qué condiciones operativas se cumplen y cuáles necesitan verificación, sin dar por hecho que la falta de registros demuestra un incumplimiento.
-3. **Cliente:** revisa los derechos, beneficios, requisitos, plazos y restricciones que afectan al titular y al contracargo. Su objetivo es aportar la perspectiva del cliente y las políticas que podrían determinar la elegibilidad o el tratamiento del reclamo.
-4. **Analizador:** recibe las evaluaciones de los tres especialistas y revisa **todas las políticas identificadas**. Determina cuáles se cumplen, cuáles se incumplen, cuáles no aplican y cuáles no se pueden verificar. Lo más importante es que **interpreta cómo se relacionan las políticas entre sí**: una exclusión de elegibilidad no tiene el mismo efecto que un beneficio o un control operativo. A partir de ese razonamiento establece una decisión recomendada: `ACCEPT`, `REJECT` o `PENDING`, explicando las políticas y la evidencia que la justifican.
-5. **Crítico y mejoras:** recibe el resultado del Analizador y la información de la investigación. Revisa si la recomendación está bien fundamentada, detecta posibles errores de interpretación, fallas operativas y riesgos del proceso. No vuelve a decidir el contracargo: propone mejoras concretas, explica por qué servirían y aporta la evidencia y las políticas relacionadas. Puede señalar que una recomendación es cuestionable sin reemplazarla automáticamente por otra.
-6. **Summarize:** toma la transacción original, la decisión del Analizador y las observaciones del Crítico. No vuelve a investigar ni a evaluar políticas. Su función es **armar un único JSON final** con la información del caso, el resumen, los hallazgos relevantes, los antecedentes comparables que ya estén disponibles, la resolución recomendada, las mejoras y los próximos pasos. El campo principal es `report_status`, cuyo valor debe coincidir con la decisión del Analizador.
-7. **Redactor HTML:** recibe el JSON de Summarize y lo convierte en un informe HTML5 ordenado y fácil de leer. No cambia la decisión ni realiza análisis nuevos. Utiliza `report_status` para destacar si la IA recomienda aceptar, rechazar o mantener pendiente el contracargo, y presenta las demás secciones de manera clara.
+### Investigador comercial
 
-### Cómo se pasa la información entre ellos
+Revisa las políticas y condiciones asociadas al comercio, como obligaciones, restricciones, beneficios y criterios de revisión. Utiliza el historial del comercio y las métricas calculadas previamente por n8n. Su objetivo es identificar qué reglas pueden resultar relevantes y dejar documentada la evidencia encontrada, sin determinar por su cuenta la decisión final del contracargo.
 
-Los tres especialistas entregan sus evaluaciones, incluyendo políticas que aplican, que no aplican o cuya situación no se puede verificar. El Analizador consolida esas políticas en `policy_evaluations`, con un estado como `COMPLIANT`, `NON_COMPLIANT`, `NOT_APPLICABLE` o `UNDETERMINED`, y genera `chargeback_decision` con su razonamiento y las políticas determinantes.
+### Investigador operativo
 
-Esa decisión pasa al Crítico, que devuelve una evaluación de la recomendación y una lista breve de `improvements`. Finalmente, Summarize reúne lo necesario en el JSON que recibe el Redactor HTML. **La decisión no se vuelve a calcular en las últimas etapas:** el estado destacado del informe sale de `analysis.chargeback_decision.decision` y se copia a `report_status`.
+Analiza el procesamiento de la operación, los controles antifraude, las autorizaciones, los eventos registrados, los plazos y la documentación disponible. Busca establecer qué condiciones operativas se cumplen y cuáles requieren una verificación adicional. Si falta un registro, no asume automáticamente que una acción no se realizó.
 
-El JSON final se organiza en estas partes:
+### Investigador del cliente
 
-| Campo              | Qué contiene                                                                                                |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `report_status`    | La decisión recomendada por la IA: `ACCEPT`, `REJECT` o `PENDING`. Es el estado principal del informe.      |
-| `case_information` | Datos de la transacción, cliente, comercio y estado originalmente registrado.                               |
-| `case_summary`     | Una explicación breve de qué pasó y qué motivó la investigación, cuando esa información está documentada.   |
-| `investigation`    | Qué se analizó y cuáles fueron los hallazgos más importantes.                                               |
-| `similar_cases`    | Casos históricos comparables que ya estén identificados en la información recibida. Si no hay, queda vacío. |
-| `resolution`       | Por qué se recomienda esa decisión, qué políticas son determinantes y qué evidencia la respalda.            |
-| `improvements`     | Críticas y mejoras propuestas para corregir o prevenir problemas del proceso.                               |
-| `next_actions`     | Pasos sugeridos para revisar, autorizar o dar seguimiento a la recomendación y a las mejoras.               |
+Evalúa las políticas que afectan al titular de la transacción, incluyendo derechos, beneficios, requisitos, plazos y restricciones. Su función es aportar la perspectiva del cliente y reconocer las condiciones que pueden influir en el tratamiento del reclamo.
+
+### Analizador
+
+Recibe los resultados de los tres investigadores y evalúa todas las políticas que identificaron. Determina cuáles se cumplen, cuáles se incumplen, cuáles no aplican y cuáles no pueden verificarse con la información disponible.
+
+Lo más importante de este agente es que no decide simplemente por la cantidad de reglas cumplidas o incumplidas. Tiene que interpretar el propósito de cada política y cómo se relaciona con las demás. Por ejemplo, una condición de elegibilidad puede ser determinante para resolver el contracargo, mientras que un control operativo o un beneficio puede generar una obligación independiente.
+
+A partir de esa evaluación, recomienda `ACCEPT`, `REJECT` o `PENDING` y explica qué políticas y evidencias justifican su conclusión.
+
+### Crítico y mejoras
+
+El Crítico revisa la recomendación del Analizador para detectar problemas de interpretación, riesgos, inconsistencias o debilidades en la justificación. También propone medidas correctivas y preventivas que podrían mejorar el proceso.
+
+No vuelve a resolver el contracargo ni reemplaza automáticamente la decisión anterior. Si encuentra una observación relevante, la deja documentada y explica por qué debería tenerse en cuenta. De esta manera, sus propuestas complementan el análisis sin mezclar la evaluación del caso con la mejora del proceso.
+
+### Summarize
+
+Este agente reúne los datos originales de la transacción, el resultado del Analizador y las observaciones del Crítico para construir un único JSON final. No vuelve a buscar información ni a evaluar políticas.
+
+Una de sus responsabilidades principales es dejar explícita la decisión recomendada por la IA mediante `report_status`. Ese valor debe salir de `analysis.chargeback_decision.decision`, sin volver a calcularse ni modificarse durante el resumen.
+
+### Redactor HTML
+
+Toma el JSON generado por Summarize y lo transforma en un informe HTML5 que se pueda visualizar desde n8n. Organiza la información, destaca el estado recomendado y explica los hallazgos, la evidencia, las mejoras y los próximos pasos. Su tarea es presentar los resultados, no realizar un análisis adicional ni cambiar la decisión.
+
+## 5. Cómo se construye la decisión final
+
+Los investigadores entregan las políticas identificadas y sus evidencias. El Analizador consolida esas evaluaciones en `policy_evaluations`, utilizando estados como `COMPLIANT`, `NON_COMPLIANT`, `NOT_APPLICABLE` y `UNDETERMINED`. Después genera `chargeback_decision`, donde queda registrada la decisión recomendada junto con su justificación.
+
+El Crítico puede señalar debilidades o proponer mejoras sobre esa conclusión, pero no la reemplaza. Finalmente, Summarize reúne toda la información y copia la decisión del Analizador en `report_status`. Así, el informe mantiene una única conclusión identificable y permite distinguirla de las observaciones posteriores.
+
+El JSON final contiene estas secciones:
+
+| Campo | Contenido |
+|---|---|
+| `report_status` | Recomendación principal de la IA: `ACCEPT`, `REJECT` o `PENDING`. |
+| `case_information` | Información de la transacción, el cliente, el comercio y el estado original. |
+| `case_summary` | Resumen del caso y de los motivos documentados de la investigación. |
+| `investigation` | Evaluaciones realizadas y hallazgos relevantes. |
+| `similar_cases` | Antecedentes comparables que ya fueron identificados. Si no existen, se deja vacío. |
+| `resolution` | Justificación de la recomendación y políticas y evidencias determinantes. |
+| `improvements` | Observaciones del Crítico y propuestas para mejorar el proceso. |
+| `next_actions` | Acciones sugeridas para revisar, autorizar o dar seguimiento al caso. |
+
+## 6. Criterios y límites de la investigación
+
+Hay algunas decisiones que tomé para evitar interpretaciones incorrectas de los resultados:
+
+- **La recomendación no equivale a una acción ejecutada.** Un `report_status` con valor `REJECT` indica que la IA recomienda rechazar el contracargo, pero no confirma que el sistema ya lo haya rechazado.
+- **El estado registrado de la transacción no define por sí solo la decisión.** Una transacción con un contracargo iniciado puede terminar con una recomendación de aceptación, rechazo o revisión pendiente.
+- **Las políticas deben interpretarse según su función.** No todas tienen el mismo peso ni determinan el mismo tipo de consecuencia. Una restricción de elegibilidad no es equivalente a un beneficio o a un plazo operativo.
+- **Una condición cumplida no demuestra que se haya realizado la acción correspondiente.** Si se supera un umbral que exige revisión, todavía hace falta evidencia para confirmar si esa revisión se efectuó.
+- **La ausencia de logs no demuestra que algo no haya ocurrido.** Cuando no hay información suficiente, una política puede quedar como `UNDETERMINED`. Eso no obliga a que toda la decisión sea `PENDING` si otra condición ya permite resolverla.
+- **Los antecedentes similares sirven como referencia, no como prueba del caso actual.** No se debe copiar la resolución de otro contracargo sin evaluar la evidencia propia.
+- **Las críticas deben conservarse.** Si el Crítico cuestiona una conclusión, Summarize tiene que incluir esa observación sin modificar silenciosamente la decisión del Analizador.
+- **Los importes del conjunto de datos están expresados en USD.** Aun así, los cálculos deben respetar la definición de cada métrica y su período.
+- **El RAG tiene límites de cobertura.** Una búsqueda con `topK = 5` puede recuperar documentos relevantes, pero no garantiza revisar todas las políticas existentes.
+
+## 7. Alcance y deuda técnica
+
+### Qué llegué a implementar
+
+Durante el desarrollo pude completar el flujo principal de investigación de contracargos, desde la carga de datos hasta la generación del informe HTML. Busqué que el sistema no dependiera solamente de las respuestas de un modelo de lenguaje, sino que pudiera trabajar con registros concretos, documentación de respaldo y una división clara de responsabilidades.
+
+Implementé los workflows de ingesta para cargar información estructurada en PostgreSQL y preparar las políticas y los casos históricos utilizados por el RAG. También incorporé un webhook que permite iniciar una investigación mediante el identificador de una transacción.
+
+Para recuperar documentación relevante, integré Qdrant y embeddings. Esto permite que los investigadores consulten políticas y antecedentes relacionados con el caso sin incluir toda la documentación dentro de los prompts.
+
+En la parte de análisis desarrollé los agentes comercial, operativo y del cliente, junto con el Analizador, el Crítico, Summarize y el Redactor HTML. n8n coordina sus ejecuciones y prepara los datos y las métricas antes de invocar a los agentes, evitando que cada uno tenga que consultar PostgreSQL por separado.
+
+También avancé en la **observabilidad y trazabilidad**. Ahora las salidas de los agentes se guardan en PostgreSQL, lo que permite revisar qué produjo cada etapa de una investigación. Además, incorporé tablas para almacenar y versionar los prompts y distinguir las versiones disponibles de las que se utilizan en producción. Esto deja una base para analizar el comportamiento del sistema y seguir los cambios en sus instrucciones.
+
+Por último, el Agente Crítico ya permite identificar inconsistencias y proponer mejoras concretas. Sin embargo, esas recomendaciones todavía no se convierten automáticamente en modificaciones del sistema.
+
+### Qué quedó pendiente
+
+La principal funcionalidad que no llegué a desarrollar fue el **circuito de mejora continua**.
+
+Aunque ahora se almacenan los resultados de los agentes y sus prompts, todavía no implementé un workflow que tome esa información, evalúe la calidad de las respuestas e identifique de manera sistemática los errores que se repiten. Tampoco desarrollé un mecanismo para comparar versiones de prompts con criterios de evaluación definidos, validar los cambios y promover una nueva versión a producción.
+
+También quedó pendiente la actualización controlada del RAG a partir de investigaciones y correcciones validadas. Por ejemplo, cuando se identifica una interpretación incorrecta de una política o se incorpora un nuevo antecedente confiable, sería útil contar con un proceso que revise esa información antes de incorporarla a la base de conocimiento. No sería conveniente que el sistema agregara automáticamente cualquier conclusión generada por la IA, porque podría terminar reforzando errores.
+
+Considero que la observabilidad y el versionado de prompts son avances importantes porque permiten conservar información que antes se perdía al finalizar cada ejecución. Sin embargo, **guardar resultados no significa que el sistema esté aprendiendo de ellos**. Para cerrar ese ciclo todavía hace falta incorporar evaluaciones, feedback, validaciones y mecanismos controlados para actualizar tanto los prompts como la documentación recuperada por RAG.
+
+En resumen, pude implementar la investigación multiagente, la generación del informe y el registro de los resultados. La mejora continua quedó planteada como una siguiente etapa de desarrollo, no como una funcionalidad que ya esté funcionando.
 
 ## Documentación complementaria
 
-- **[Diagrama de la solución](DIAGRAMA_SOLUCION.md):** cómo avanza una investigación y qué pasa en cada etapa.
-- **[RAG](RAG.md):** cómo se buscan políticas y casos parecidos, y qué límites tiene esa búsqueda.
-- **[Consultas SQL y métricas](QUERIES_SQL.md):** qué datos se consultan, cómo se calculan algunas métricas y qué supuestos hay que validar.
-
-## 5. Integridad y límites de la investigación
-
-- **La decisión de la IA no es un cambio ejecutado en el sistema.** `report_status: "REJECT"` significa que el análisis recomienda el rechazo; no demuestra que el contracargo ya haya sido rechazado en la base de datos.
-- **El estado de la transacción no determina la recomendación.** Una transacción con estado `Contracargo iniciado` puede terminar con una recomendación `REJECT`, `ACCEPT` o `PENDING`, dependiendo de las políticas y la evidencia.
-- **Las políticas no se deciden por cantidad.** El Analizador tiene que comprender su función y su relación lógica: una condición que determina la elegibilidad puede ser decisiva, mientras un beneficio, un SLA o un control operativo puede generar obligaciones independientes sin modificar el resultado del contracargo.
-- **Que una condición se active no significa que se ejecutó una acción.** Por ejemplo, superar un umbral puede exigir una revisión, pero sin registros suficientes no corresponde afirmar que la revisión se realizó o que se omitió.
-- **Que no haya logs no prueba que no haya habido una acción.** Cuando falta evidencia para evaluar una política, puede quedar `UNDETERMINED`; eso no obliga a poner la decisión completa en `PENDING` si otra política ya determina el resultado.
-- **Un caso parecido no es evidencia del caso actual.** Los antecedentes sirven para comparar y entender posibles patrones, no para copiar una resolución. Summarize solo los incluye si ya llegan identificados y con información suficiente.
-- **Si hay una crítica importante, se conserva su observación.** El Crítico puede cuestionar el razonamiento del Analizador. Summarize debe reflejar esa reserva, pero no cambiar silenciosamente `report_status`.
-- **Todos los montos del conjunto de datos están expresados en USD.**
-- **La búsqueda RAG no es exhaustiva.** `topK=5` devuelve hasta cinco resultados por consulta; para una auditoría de cumplimiento convendría sumar una búsqueda determinística de todo el catálogo.
-
-## 6. Alcance y deuda técnica
-
-A lo largo del desarrollo pude implementar el flujo principal de investigación de contracargos, desde la ingesta de información hasta la generación del informe final. La idea fue integrar distintas herramientas para que el sistema no dependa únicamente de un modelo de lenguaje, sino que pueda trabajar con datos estructurados, consultar documentación relevante y justificar las decisiones que toma.
-
-En cuanto a lo que llegué a implementar, el sistema cuenta con los siguientes componentes:
-
-**Ingesta de datos**: desarrollé workflows en n8n para cargar información estructurada en PostgreSQL y preparar las políticas internas y los casos históricos que después se utilizan en el RAG. También incorporé un webhook para iniciar una investigación a partir del identificador de una transacción.
-
-**RAG**: implementé la búsqueda de políticas y antecedentes mediante Qdrant y embeddings. Esto permite recuperar documentación relevante para cada investigación sin tener que incorporar todas las políticas directamente en los prompts.
-
-**Sistema multiagente**: desarrollé agentes especializados para analizar la información desde las perspectivas operativa, comercial y del cliente. A partir de sus resultados, el Analizador evalúa las políticas, determina cuáles se cumplen y cuáles no, e identifica las condiciones que realmente influyen en la decisión del contracargo. Después, el Crítico revisa ese razonamiento y propone mejoras, mientras que Summarize consolida la información para que el Redactor genere el informe HTML.
-
-**Automatización**: utilicé n8n para coordinar todo el proceso, desde las consultas SQL y la preparación de métricas hasta la ejecución de los agentes y la generación del resultado. Una decisión importante fue realizar las consultas a PostgreSQL antes de ejecutar los agentes, de manera que trabajen con información previamente preparada y no tengan que consultar la base de datos por su cuenta.
-
-**Observabilidad y trazabilidad**: implementé el almacenamiento de las salidas de los agentes en PostgreSQL, lo que permite conservar los resultados de cada etapa de la investigación. También incorporé tablas para guardar y versionar los prompts, junto con una separación entre sus versiones y las utilizadas en producción. De esta manera, puedo conocer qué información generó cada agente y mantener un registro de las instrucciones utilizadas, facilitando el seguimiento y la revisión de las investigaciones.
-
-**Identificación de problemas y propuestas de mejora**: mediante el Agente Crítico, el sistema puede identificar inconsistencias, posibles incumplimientos y riesgos operativos a partir de los resultados del análisis. Además de señalar esos problemas, propone medidas correctivas o preventivas y explica por qué podrían mejorar el proceso.
-
-### ¿Qué quedó pendiente?
-
-La principal funcionalidad que no llegué a implementar fue el circuito de mejora continua.
-
-Si bien el sistema ya guarda los prompts y las salidas de los agentes, todavía no desarrollé un proceso que utilice automáticamente esa información para evaluar la calidad de las respuestas y mejorar el comportamiento de los agentes.
-
-La idea era aprovechar los resultados almacenados para identificar errores recurrentes, detectar decisiones mal fundamentadas, comparar diferentes versiones de prompts y utilizar las correcciones para mejorar las siguientes investigaciones.
-
-También quedó pendiente implementar un mecanismo para actualizar el RAG a partir de los resultados y del feedback obtenido. Por ejemplo, si durante una investigación se detecta una interpretación incorrecta de una política o se incorpora un nuevo antecedente validado, el sistema podría utilizar esa información para enriquecer la base de conocimiento y evitar repetir errores similares.
-
-Considero que haber incorporado la observabilidad y el versionado de prompts fue un primer paso importante, porque ahora la información necesaria para analizar el comportamiento del sistema queda registrada. Sin embargo, **tener esa información almacenada no significa que el sistema ya aprenda de sus errores**. Para eso todavía sería necesario desarrollar un workflow que evalúe los resultados, incorpore feedback, valide los cambios y actualice los prompts o la base de conocimiento cuando corresponda.
-
-En definitiva, pude completar el proceso de investigación, análisis y generación de informes, junto con el registro de sus resultados. Lo que quedó como una siguiente etapa fue cerrar el ciclo de mejora continua, para que el sistema pueda mejorar progresivamente a partir de las investigaciones realizadas.
-
----
-
-**En pocas palabras:** PostgreSQL aporta los datos y las métricas; Qdrant ayuda a encontrar políticas y antecedentes relevantes. Tres agentes especializados investigan el caso, el Analizador interpreta las políticas y recomienda una decisión, el Crítico revisa esa conclusión y propone mejoras, Summarize prepara el JSON final con `report_status` como estado principal, y el Redactor genera el informe HTML sin volver a decidir nada.
-
-**Fuente:** documentación del proyecto proporcionada por el usuario y ajustes de responsabilidades definidos para los agentes el 20/11/2026. La implementación efectiva de los cambios debe verificarse contra el workflow actualizado.
+- [Diagrama de la solución](DIAGRAMA_SOLUCION.md): muestra cómo circula la información desde el webhook hasta el informe.
+- [RAG](RAG.md): explica cómo se recuperan las políticas y los antecedentes y por qué se utiliza una base vectorial.
+- [Consultas SQL](QUERIES_SQL.md): documenta los datos y las métricas que se preparan antes del análisis.
