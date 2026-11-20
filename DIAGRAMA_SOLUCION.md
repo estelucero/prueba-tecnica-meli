@@ -25,7 +25,7 @@ flowchart TD
     U --> J
     J --> A[4. Analista integrador]
     A --> K[5. Crítico y mejoras]
-    K --> R[6. Resolutor]
+    K --> R[6. Resumidor]
     R --> H[7. Redactor HTML]
     H --> X[Respond to Webhook: HTML]
 ```
