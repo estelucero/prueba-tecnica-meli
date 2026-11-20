@@ -103,17 +103,17 @@ A lo largo del desarrollo pude implementar el flujo principal de investigación 
 
 En cuanto a lo que llegué a implementar, el sistema cuenta con los siguientes componentes:
 
-Ingesta de datos: desarrollé workflows en n8n para cargar información estructurada en PostgreSQL y preparar las políticas internas y los casos históricos que después se utilizan en el RAG. También incorporé un webhook para iniciar una investigación a partir del identificador de una transacción.
+**Ingesta de datos**: desarrollé workflows en n8n para cargar información estructurada en PostgreSQL y preparar las políticas internas y los casos históricos que después se utilizan en el RAG. También incorporé un webhook para iniciar una investigación a partir del identificador de una transacción.
 
-RAG: implementé la búsqueda de políticas y antecedentes mediante Qdrant y embeddings. Esto permite recuperar documentación relevante para cada investigación sin tener que incorporar todas las políticas directamente en los prompts.
+**RAG**: implementé la búsqueda de políticas y antecedentes mediante Qdrant y embeddings. Esto permite recuperar documentación relevante para cada investigación sin tener que incorporar todas las políticas directamente en los prompts.
 
-Sistema multiagente: desarrollé agentes especializados para analizar la información desde las perspectivas operativa, comercial y del cliente. A partir de sus resultados, el Analizador evalúa las políticas, determina cuáles se cumplen y cuáles no, e identifica las condiciones que realmente influyen en la decisión del contracargo. Después, el Crítico revisa ese razonamiento y propone mejoras, mientras que Summarize consolida la información para que el Redactor genere el informe HTML.
+**Sistema multiagente**: desarrollé agentes especializados para analizar la información desde las perspectivas operativa, comercial y del cliente. A partir de sus resultados, el Analizador evalúa las políticas, determina cuáles se cumplen y cuáles no, e identifica las condiciones que realmente influyen en la decisión del contracargo. Después, el Crítico revisa ese razonamiento y propone mejoras, mientras que Summarize consolida la información para que el Redactor genere el informe HTML.
 
-Automatización: utilicé n8n para coordinar todo el proceso, desde las consultas SQL y la preparación de métricas hasta la ejecución de los agentes y la generación del resultado. Una decisión importante fue realizar las consultas a PostgreSQL antes de ejecutar los agentes, de manera que trabajen con información previamente preparada y no tengan que consultar la base de datos por su cuenta.
+**Automatización**: utilicé n8n para coordinar todo el proceso, desde las consultas SQL y la preparación de métricas hasta la ejecución de los agentes y la generación del resultado. Una decisión importante fue realizar las consultas a PostgreSQL antes de ejecutar los agentes, de manera que trabajen con información previamente preparada y no tengan que consultar la base de datos por su cuenta.
 
-Observabilidad y trazabilidad: implementé el almacenamiento de las salidas de los agentes en PostgreSQL, lo que permite conservar los resultados de cada etapa de la investigación. También incorporé tablas para guardar y versionar los prompts, junto con una separación entre sus versiones y las utilizadas en producción. De esta manera, puedo conocer qué información generó cada agente y mantener un registro de las instrucciones utilizadas, facilitando el seguimiento y la revisión de las investigaciones.
+**Observabilidad y trazabilidad**: implementé el almacenamiento de las salidas de los agentes en PostgreSQL, lo que permite conservar los resultados de cada etapa de la investigación. También incorporé tablas para guardar y versionar los prompts, junto con una separación entre sus versiones y las utilizadas en producción. De esta manera, puedo conocer qué información generó cada agente y mantener un registro de las instrucciones utilizadas, facilitando el seguimiento y la revisión de las investigaciones.
 
-Identificación de problemas y propuestas de mejora: mediante el Agente Crítico, el sistema puede identificar inconsistencias, posibles incumplimientos y riesgos operativos a partir de los resultados del análisis. Además de señalar esos problemas, propone medidas correctivas o preventivas y explica por qué podrían mejorar el proceso.
+**Identificación de problemas y propuestas de mejora**: mediante el Agente Crítico, el sistema puede identificar inconsistencias, posibles incumplimientos y riesgos operativos a partir de los resultados del análisis. Además de señalar esos problemas, propone medidas correctivas o preventivas y explica por qué podrían mejorar el proceso.
 
 ### ¿Qué quedó pendiente?
 
@@ -125,7 +125,7 @@ La idea era aprovechar los resultados almacenados para identificar errores recur
 
 También quedó pendiente implementar un mecanismo para actualizar el RAG a partir de los resultados y del feedback obtenido. Por ejemplo, si durante una investigación se detecta una interpretación incorrecta de una política o se incorpora un nuevo antecedente validado, el sistema podría utilizar esa información para enriquecer la base de conocimiento y evitar repetir errores similares.
 
-Considero que haber incorporado la observabilidad y el versionado de prompts fue un primer paso importante, porque ahora la información necesaria para analizar el comportamiento del sistema queda registrada. Sin embargo, tener esa información almacenada no significa que el sistema ya aprenda de sus errores. Para eso todavía sería necesario desarrollar un workflow que evalúe los resultados, incorpore feedback, valide los cambios y actualice los prompts o la base de conocimiento cuando corresponda.
+Considero que haber incorporado la observabilidad y el versionado de prompts fue un primer paso importante, porque ahora la información necesaria para analizar el comportamiento del sistema queda registrada. Sin embargo, **tener esa información almacenada no significa que el sistema ya aprenda de sus errores**. Para eso todavía sería necesario desarrollar un workflow que evalúe los resultados, incorpore feedback, valide los cambios y actualice los prompts o la base de conocimiento cuando corresponda.
 
 En definitiva, pude completar el proceso de investigación, análisis y generación de informes, junto con el registro de sus resultados. Lo que quedó como una siguiente etapa fue cerrar el ciclo de mejora continua, para que el sistema pueda mejorar progresivamente a partir de las investigaciones realizadas.
 
